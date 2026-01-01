@@ -1,0 +1,107 @@
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import sessionmaker
+from typing import List, Dict, Optional
+from datetime import datetime
+
+from db.models import Base, User, Meeting, Attendee, Todo, Preference
+
+
+class MeetingDB:
+    def __init__(self, db_url: str = "sqlite:///db.sqlite"):
+        # SQLite 默认需要 check_same_thread=False 来支持多线程
+        self.engine = create_engine(db_url, connect_args={"check_same_thread": False})
+        self.SessionLocal = sessionmaker(bind=self.engine)
+        # 自动建表
+        Base.metadata.create_all(self.engine)
+
+    # --- 用户操作 ---
+    def add_user(self, username: str, password_hash: str) -> int:
+        with self.SessionLocal() as session:
+            new_user = User(username=username, password_hash=password_hash)
+            session.add(new_user)
+            session.commit()
+            return new_user.user_id
+
+    def get_user(self, username: str) -> Optional[Dict]:
+        with self.SessionLocal() as session:
+            stmt = select(User).where(User.username == username)
+            user = session.execute(stmt).scalar_one_or_none()
+            return {"user_id": user.user_id, "username": user.username} if user else None
+
+    # --- 会议操作 ---
+    def add_meeting(self, user_id: int, subject: str, start_time: datetime,
+                    duration: Optional[int] = None,
+                    attendees: Optional[List[str]] = None) -> int:
+        with self.SessionLocal() as session:
+            meeting = Meeting(
+                user_id=user_id,
+                subject=subject,
+                start_time=start_time,
+                duration=duration
+            )
+            if attendees:
+                meeting.attendees = [Attendee(name=name) for name in attendees]
+
+            session.add(meeting)
+            session.commit()
+            return meeting.meeting_id
+
+    def get_user_meetings(self, user_id: int) -> List[Dict]:
+        with self.SessionLocal() as session:
+            stmt = select(Meeting).where(Meeting.user_id == user_id).order_by(Meeting.start_time.desc())
+            results = session.execute(stmt).scalars().all()
+            return [
+                {"meeting_id": m.meeting_id, "subject": m.subject, "start_time": m.start_time}
+                for m in results
+            ]
+
+    def get_meeting(self, meeting_id: int, user_id: int) -> Optional[Dict]:
+        with self.SessionLocal() as session:
+            stmt = select(Meeting).where(Meeting.meeting_id == meeting_id, Meeting.user_id == user_id)
+            meeting = session.execute(stmt).scalar_one_or_none()
+            if not meeting:
+                return None
+
+            return {
+                "meeting_id": meeting.meeting_id,
+                "subject": meeting.subject,
+                "attendees": [a.name for a in meeting.attendees],
+                "todos": [{"task": t.task, "owner": t.owner} for t in meeting.todos]
+            }
+
+    # --- 待办事项批量操作 ---
+    def add_todos(self, meeting_id: int, todos_data: List[Dict]) -> None:
+        with self.SessionLocal() as session:
+            new_todos = [
+                Todo(
+                    meeting_id=meeting_id,
+                    owner=t["owner"],
+                    task=t["task"],
+                    deadline=t.get("deadline"),
+                    status=t.get("status", "pending")
+                ) for t in todos_data
+            ]
+            session.add_all(new_todos)
+            session.commit()
+
+    # --- 用户偏好操作 (使用 Upsert 逻辑) ---
+    def add_user_preference(self, user_id: int, category: str, preference_val: str):
+        with self.SessionLocal() as session:
+            # 查找是否存在
+            stmt = select(Preference).where(Preference.user_id == user_id, Preference.category == category)
+            pref = session.execute(stmt).scalar_one_or_none()
+
+            if pref:
+                pref.preference = preference_val
+            else:
+                pref = Preference(user_id=user_id, category=category, preference=preference_val)
+                session.add(pref)
+
+            session.commit()
+            return pref.preference_id
+
+    def get_user_preference_dict(self, user_id: int) -> Dict[str, str]:
+        with self.SessionLocal() as session:
+            stmt = select(Preference).where(Preference.user_id == user_id)
+            prefs = session.execute(stmt).scalars().all()
+            return {p.category: p.preference for p in prefs}
