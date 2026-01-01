@@ -1,6 +1,7 @@
 from typing import List
 from pydantic import BaseModel, Field
 
+
 class BasicInfo(BaseModel):
     attendees: List[str] = Field(description="参会人姓名列表")
     time: str = Field(description="会议日期和时间")
@@ -22,6 +23,11 @@ class TodoItem(BaseModel):
 class FollowUp(BaseModel):
     topic: str = Field(description="需要跟进的争议点或未决事项")
     reason: str = Field(description="需要跟进的原因或待核实的信息")
+
+
+class Preference(BaseModel):
+    category: str = Field(description="偏好类别")
+    preference: str = Field(description="具体偏好值")
 
 
 class MeetingRecord(BaseModel):
