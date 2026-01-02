@@ -84,6 +84,19 @@ class MeetingDB:
             session.add_all(new_todos)
             session.commit()
 
+    def update_todos(self, todos_data: List[Dict]) -> None:
+        with self.SessionLocal() as session:
+            for t_data in todos_data:
+                stmt = select(Todo).where(Todo.todo_id == t_data["todo_id"])
+                todo = session.execute(stmt).scalar_one_or_none()
+                if todo:
+                    todo.owner = t_data.get("owner", todo.owner)
+                    todo.task = t_data.get("task", todo.task)
+                    todo.deadline = t_data.get("deadline", todo.deadline)
+                    todo.status = t_data.get("status", todo.status)
+
+            session.commit()
+
     # --- 用户偏好操作 (使用 Upsert 逻辑) ---
     def add_user_preference(self, user_id: int, category: str, preference_val: str):
         with self.SessionLocal() as session:

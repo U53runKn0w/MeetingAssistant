@@ -4,8 +4,8 @@ from langchain_core.prompts import PromptTemplate
 import config
 import asyncio
 from action.tools import extract_meeting_basic_info, parse_meeting_agenda_conclusion, generate_meeting_todo, \
-    mark_meeting_follow_up
-from config import template, meeting
+    mark_meeting_follow_up, generate_user_preferences
+from config import template, meeting, template_no_meeting
 
 
 def create_agent(callbacks=None):
@@ -45,11 +45,45 @@ def create_agent(callbacks=None):
     return agent_executor
 
 
-async def run_query_async(agent_executor, query: str):
+def create_pref_agent(callbacks=None):
+    callbacks = callbacks or []
+
+    llm = ChatDeepSeek(
+        model="deepseek-chat",
+        temperature=0,
+        max_retries=2,
+        callbacks=callbacks,
+        streaming=True,
+        stop_sequences=["\nObservation:"],
+    )
+
+    tools = [generate_user_preferences]
+
+    prompt = PromptTemplate.from_template(template_no_meeting)
+
+    react_agent = create_react_agent(
+        llm=llm,
+        tools=tools,
+        prompt=prompt,
+    )
+
+    agent_executor = AgentExecutor(
+        agent=react_agent,
+        tools=tools,
+        verbose=config.VERBOSE,
+        max_iterations=config.MAX_ITERATIONS,
+        handle_parsing_errors=True,
+        callbacks=callbacks,
+    )
+
+    return agent_executor
+
+
+async def run_query_async(agent_executor, query: str, has_meeting: bool = True):
     print(f"🤔 用户问题: {query}")
 
     async for event in agent_executor.astream_events(
-            {"input": query, "meeting": meeting},
+            {"input": query, "meeting": meeting} if has_meeting else {"input": query},
             version="v2",
     ):
         kind = event["event"]
@@ -69,8 +103,8 @@ async def run_query_async(agent_executor, query: str):
 
 
 if __name__ == "__main__":
-    agent = create_agent()
-
+    # agent = create_agent()
+    agent = create_pref_agent()
     while True:
         try:
             user_input = input("👤 请输入您的问题: ").strip()

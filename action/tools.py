@@ -4,9 +4,8 @@ from langchain_deepseek import ChatDeepSeek
 from pydantic import BaseModel, Field
 from langchain_core.prompts import ChatPromptTemplate
 
-from db import manager
 from db.manager import MeetingDB
-from models import BasicInfo, AgendaConclusion, TodoItem, FollowUp, Preference
+from .models import BasicInfo, AgendaConclusion, TodoItem, FollowUp, Preference
 
 shared_llm = ChatDeepSeek(model="deepseek-chat", temperature=0, streaming=True)
 
@@ -107,10 +106,12 @@ def mark_meeting_follow_up(text: str) -> List[dict]:
 
 
 @tool
-def generate_user_preferences(text: str) -> List[dict]:
+def generate_user_preferences(text: str, user_id: int) -> List[dict]:
     """
     【功能】从用户描述中提取个性化偏好设置。
-    【输入限制】输入应为用户明确表达的喜好、习惯或特定需求的描述。
+    【输入限制】
+    - text: 输入应为用户明确表达的喜好、习惯或特定需求的描述。
+    - user_id: 用于标识用户身份的id。
     【提取字段】
     - category: 偏好类别（如：通知设置、界面主题、语言偏好等）
     - preference: 具体的偏好值或选项
@@ -121,25 +122,25 @@ def generate_user_preferences(text: str) -> List[dict]:
         preferences: List[Preference]
 
     existing_prefs = []
-    user_id = 1
 
     try:
         db = MeetingDB()
-        existing_prefs = db.get_user_preference_dict(db, user_id=user_id)
+        existing_prefs = db.get_user_preference_dict(user_id=user_id)
 
     except Exception:
         pass
 
     structured_llm = shared_llm.with_structured_output(PreferenceList)
     prompt_analyze_preference = ChatPromptTemplate.from_messages([
-        ("system", "你是一个用户体验设计师。请你从用户给出的文本中提取其偏好设置（如所在部门、岗位、常用称呼等）"),
+        ("system",
+         "你是一个用户体验设计师，你需要从用户文本中提取偏好，并直接输出标准化结果：\n"
+         "1. 若新类别与现有类别（{existing_prefs}）语义相同（如“所在部门”和“部门”），必须统一为现有类别名称\n"
+         "2. 若为新类别，需简化名称（如“我希望的称呼方式”→“称呼”）\n"
+         ),
         ("user", "{text}")
     ])
-    prompt_recheck_preferences = ChatPromptTemplate.from_messages([
-        ("system", "你是一个用户体验设计师。请你复核以下用户偏好设置，确保不重复已有偏好："
-                   "{existing_prefs}"),
-    ])
-    chain = prompt_analyze_preference | prompt_recheck_preferences | structured_llm
+
+    chain = prompt_analyze_preference | structured_llm
 
     result = chain.invoke({"text": text, "existing_prefs": existing_prefs})
 
@@ -157,3 +158,4 @@ def generate_user_preferences(text: str) -> List[dict]:
             continue
 
     return result_return
+

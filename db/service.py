@@ -1,9 +1,11 @@
+import string
 from datetime import datetime
-from typing import List
+from typing import List, Optional
+from hashlib import md5
 
 from action.models import MeetingRecord, AgendaConclusion, FollowUp
 from db.manager import MeetingDB
-from db.models import Meeting, Attendee, Todo
+from db.models import Meeting, Attendee, Todo, User
 
 
 def convert_todos(todo_list: list) -> List[Todo]:
@@ -28,9 +30,37 @@ def convert_todos(todo_list: list) -> List[Todo]:
     return orm_todos
 
 
+def update_todos(todo_id: int, owner: Optional[string], task: Optional[string], deadline: Optional[datetime], status: Optional[string] ) -> None:
+    allowed_status = ["pending", "in_progress", "completed", "cancelled"]
+    if status and status not in allowed_status:
+        raise ValueError(f"Invalid status: {status}. Allowed values are: {allowed_status}")
+    db = MeetingDB()
+    todo_dict = {"todo_id": todo_id}
+    if owner is not None:
+        todo_dict["owner"] = owner
+    if task is not None:
+        todo_dict["task"] = task
+    if deadline is not None:
+        todo_dict["deadline"] = deadline
+    if status is not None:
+        todo_dict["status"] = status
+
+    db.update_todos([todo_dict])
+
+
 class MeetingService:
     def __init__(self, db: MeetingDB):
         self.db = db
+
+    def user_login(self, username: str, password: str) -> int:
+        """
+        用户登录验证，成功返回用户ID，失败抛出异常
+        """
+        with self.db.SessionLocal() as session:
+            user = session.query(User).filter(User.username == username).first()
+            if not user or user.password_hash != md5(password).hexdigest():
+                raise ValueError("用户名或密码错误")
+            return user["user_id"]
 
     def process_meeting_record(self, record: MeetingRecord) -> int:
         """
@@ -87,4 +117,3 @@ class MeetingService:
                 session.rollback()
                 print(f"Error saving meeting: {e}")
                 raise
-
