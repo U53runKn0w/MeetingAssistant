@@ -6,11 +6,11 @@ PRAGMA foreign_keys = ON;
 -- ---------------------------------------------------------
 CREATE TABLE IF NOT EXISTS users
 (
-    user_id       INTEGER PRIMARY KEY AUTOINCREMENT,
-    username      TEXT UNIQUE NOT NULL,
-    password TEXT        NOT NULL,
-    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    user_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    username   TEXT UNIQUE NOT NULL,
+    password   TEXT        NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ---------------------------------------------------------
@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS agenda_conclusions
 -- ---------------------------------------------------------
 CREATE TABLE IF NOT EXISTS todos
 (
+    user_id    INTEGER NOT NULL,
     todo_id    INTEGER PRIMARY KEY AUTOINCREMENT,
     meeting_id INTEGER NOT NULL,
     owner      TEXT    NOT NULL,
@@ -139,9 +140,9 @@ VALUES (1, '移动端改版时间表', '确定于2月中旬开启 Beta 测试'),
        (1, '预算申请', '通过初步审核，需提交详细费用清单');
 
 -- 插入待办事项
-INSERT INTO todos (meeting_id, owner, task, deadline, status)
-VALUES (1, '李四', '提交移动端 UI 设计初稿', '2026-01-12 18:00:00', 'pending'),
-       (1, '王五', '整理 Q1 预算明细表', '2026-01-08 12:00:00', 'in_progress');
+INSERT INTO todos (user_id, meeting_id, owner, task, deadline, status)
+VALUES (1, 1, '李四', '提交移动端 UI 设计初稿', '2026-01-12 18:00:00', 'pending'),
+       (1, 1, '王五', '整理 Q1 预算明细表', '2026-01-08 12:00:00', 'in_progress');
 
 -- 插入待跟进事项
 INSERT INTO follow_ups (meeting_id, topic, reason)

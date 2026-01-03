@@ -37,7 +37,7 @@ def extract_meeting_basic_info(text: str) -> dict:
 def parse_meeting_agenda_conclusion(text: str) -> List[dict]:
     """
     【功能】分析会议关键讨论点并总结结论。
-    【输入限制】输入应为经过初步筛选的、包含实质性讨论内容的关键句集合。
+    【输入限制】输入应为经过初步筛选的、包含实质性讨论内容的关键句集合，无关部分请用...省略。
     【提取字段】
     - agenda: 核心议题或具体的讨论点
     - conclusion: 最终达成的共识、定论或处理方案
@@ -61,7 +61,7 @@ def parse_meeting_agenda_conclusion(text: str) -> List[dict]:
 def generate_meeting_todo(text: str) -> List[dict]:
     """
     【功能】从会议执行相关的关键句中提取 Action Items（待办事项）。
-    【输入限制】输入应为涉及任务分配、责任归属、截止日期要求的关键语句。
+    【输入限制】输入应为涉及任务分配、责任归属、截止日期要求的关键语句，无关部分请用...省略。
     【提取字段】
     - owner: 明确的任务负责人姓名
     - task: 具体的任务描述
@@ -86,7 +86,7 @@ def generate_meeting_todo(text: str) -> List[dict]:
 def mark_meeting_follow_up(text: str) -> List[dict]:
     """
     【功能】识别关键句中隐含的风险、争议或后续需调研的未决事项。
-    【输入限制】输入应为表现出意见分歧、不确定性或需要“会后再议”的关键描述。
+    【输入限制】输入应为表现出意见分歧、不确定性或需要“会后再议”的关键描述，无关部分请用...省略。
     【提取字段】
     - topic: 争议点或待核实的技术/业务问题
     - reason: 需要跟进的具体原因（如：数据不足、需跨部门协调等）
@@ -147,7 +147,7 @@ def generate_user_preferences(text: str, user_id: int) -> List[dict]:
 @tool
 def get_user_info(username: str):
     """
-    【功能】查询指定用户的全量画像数据，包括个性化偏好、历史会议记录及待办事项。
+    【功能】查询指定用户在提问前的历史画像数据，包括个性化偏好、历史会议记录及历史待办事项。
     【输入限制】
     - username: 用户的标准账号名称或系统登录名。
     【提取字段】
@@ -160,10 +160,9 @@ def get_user_info(username: str):
     user_id = db.get_user(username).get('user_id')
     pref = db.get_user_preference_dict(user_id=user_id)
     meetings = db.get_user_meetings(user_id=user_id)
-    # todos = db.get_user_todos(user_id=user_id)
+    todos = db.get_user_todos(user_id=user_id)
     return {
         "preferences": pref,
         "meetings": meetings,
-        # "todos": todos,
-        "todos": [],
+        "todos": todos,
     }

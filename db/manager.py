@@ -73,10 +73,11 @@ class MeetingDB:
             }
 
     # --- 待办事项批量操作 ---
-    def add_todos(self, meeting_id: int, todos_data: List[Dict]) -> None:
+    def add_todos(self, user_id: int, meeting_id: int, todos_data: List[Dict]) -> None:
         with self.SessionLocal() as session:
             new_todos = [
                 Todo(
+                    user_id=user_id,
                     meeting_id=meeting_id,
                     owner=t["owner"],
                     task=t["task"],
@@ -93,6 +94,7 @@ class MeetingDB:
                 stmt = select(Todo).where(Todo.todo_id == t_data["todo_id"])
                 todo = session.execute(stmt).scalar_one_or_none()
                 if todo:
+                    todo.user_id = t_data.get("user_id", todo.user_id)
                     todo.owner = t_data.get("owner", todo.owner)
                     todo.task = t_data.get("task", todo.task)
                     todo.deadline = t_data.get("deadline", todo.deadline)

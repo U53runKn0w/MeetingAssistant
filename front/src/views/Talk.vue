@@ -81,7 +81,7 @@
                   <code class="small text-dark">{{ msg.text }}</code>
                 </div>
 
-                <div v-else-if="msg.type === 'observation'" class="alert alert-secondary py-2 mt-2">
+                <div v-else-if="msg.type === 'Observation'" class="alert alert-secondary py-2 mt-2">
                   <div class="fw-bold small mb-1">
                     <i class="bi bi-tools me-1"></i>工具返回结果:
                   </div>
@@ -103,7 +103,7 @@
                   <div class="alert alert-secondary py-2 mt-2 border-0 shadow-sm opacity-75">
                     <div class="d-flex align-items-center">
                       <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-                      <span class="small text-muted">工具正在处理中，请稍候...</span>
+                      <span class="small text-muted">调用工具中，请稍候...</span>
                     </div>
                   </div>
                 </template>
@@ -130,6 +130,14 @@
           </div>
         </div>
       </div>
+
+      <div v-if="toResultButtonShow" class="text-center mt-4">
+        <button @click="toResult" class="btn btn-outline-primary px-5 py-2 rounded-pill">
+          <i class="bi bi-arrow-right me-2"></i>
+          前往结果页面
+        </button>
+      </div>
+
     </div>
   </div>
 </template>
@@ -140,6 +148,7 @@ import {parseReActContent} from "@/js/util.js";
 import {fetchEventSource} from '@microsoft/fetch-event-source';
 import router from "@/router/index.js";
 import {dummyMeeting} from "@/js/etc.js";
+import {useConversation} from "@/js/store.js";
 
 
 const meetingText = ref('');
@@ -149,7 +158,16 @@ const error = ref(null);
 const messages = ref([]);
 const chatContainer = ref(null);
 const isUploading = ref(false);
+const toResultButtonShow = ref(false);
 const url = 'http://localhost:5000/api/chat';
+const conversation = useConversation();
+
+onMounted(() => {
+  if (conversation.messages.length > 0) {
+    messages.value = conversation.messages;
+    toResultButtonShow.value = true;
+  }
+})
 
 const handleFileUpload = async (event) => {
   const file = event.target.files[0];
@@ -180,6 +198,7 @@ const handleFileUpload = async (event) => {
 const sendMessage = async () => {
   if (!userQuery.value || isLoading.value) return;
 
+  toResultButtonShow.value = false;
   const token = localStorage.getItem('token');
   let headers = {
     'Content-Type': 'application/json',
@@ -225,7 +244,9 @@ const sendMessage = async () => {
 
         switch (data.type) {
           case 'observation':
-            messages.value.push({type: 'observation', text: data.content});
+            let content = data.content
+            content = content.substring(content.indexOf(':') + 1).trim();
+            messages.value.push({type: 'Observation', text: content});
             rawAgentBuffer = "";
             agentStartIndex = -1;
             break;
@@ -266,6 +287,8 @@ const sendMessage = async () => {
   } catch (err) {
     console.error("Fetch Error:", err);
     error.value = err.message;
+  } finally {
+    toResultButtonShow.value = true;
   }
 };
 
@@ -277,6 +300,11 @@ watch(messages, () => {
     }
   });
 }, {deep: true});
+
+const toResult = async () => {
+  conversation.messages = messages.value;
+  await router.push('/result');
+}
 </script>
 
 <style scoped>
