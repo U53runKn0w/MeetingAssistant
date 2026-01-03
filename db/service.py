@@ -58,7 +58,7 @@ class MeetingService:
         """
         with self.db.SessionLocal() as session:
             user = session.query(User).filter(User.username == username).first()
-            if not user or user.password_hash != md5(password).hexdigest():
+            if not user or user.password != md5(password).hexdigest():
                 raise ValueError("用户名或密码错误")
             return user["user_id"]
 

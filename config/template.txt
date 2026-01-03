@@ -18,7 +18,10 @@ Final Answer: 对原始输入问题的最终答案，用中文，给出清晰的
 3. 在"Final Answer:"之后立即停止，不要生成任何额外内容
 4. 不要道歉或解释格式错误
 
+背景信息：
 会议原文：{meeting}
+该用户的用户名为：{username}
+
 开始！
 
 Question: {input}

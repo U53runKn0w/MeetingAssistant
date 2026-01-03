@@ -1,10 +1,11 @@
+from contextlib import suppress
 from typing import List
 from langchain_core.tools import tool
 from langchain_deepseek import ChatDeepSeek
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from langchain_core.prompts import ChatPromptTemplate
 
-from db.manager import MeetingDB
+from db.manager import db
 from .models import BasicInfo, AgendaConclusion, TodoItem, FollowUp, Preference
 
 shared_llm = ChatDeepSeek(model="deepseek-chat", temperature=0, streaming=True)
@@ -121,41 +122,48 @@ def generate_user_preferences(text: str, user_id: int) -> List[dict]:
     class PreferenceList(BaseModel):
         preferences: List[Preference]
 
-    existing_prefs = []
-
-    try:
-        db = MeetingDB()
-        existing_prefs = db.get_user_preference_dict(user_id=user_id)
-
-    except Exception:
-        pass
-
     structured_llm = shared_llm.with_structured_output(PreferenceList)
     prompt_analyze_preference = ChatPromptTemplate.from_messages([
-        ("system",
-         "你是一个用户体验设计师，你需要从用户文本中提取偏好，并直接输出标准化结果：\n"
-         "1. 若新类别与现有类别（{existing_prefs}）语义相同（如“所在部门”和“部门”），必须统一为现有类别名称\n"
-         "2. 若为新类别，需简化名称（如“我希望的称呼方式”→“称呼”）\n"
-         ),
+        ("system", """你是一个用户体验设计师，你需要从用户问题中提取偏好，并直接输出标准化结果：
+         1. 若新类别与现有类别（{existing_prefs}）语义相同（如“所在部门”和“部门”），必须统一为现有类别名称
+         2. 若为新类别，需简化名称（如“我希望的称呼方式”→“称呼”）"""),
         ("user", "{text}")
     ])
-
     chain = prompt_analyze_preference | structured_llm
-
+    existing_prefs = db.get_user_preference_dict(user_id=user_id)
     result = chain.invoke({"text": text, "existing_prefs": existing_prefs})
-
     result_return = [result.model_dump() for result in result.preferences]
 
     for pref in result_return:
-        try:
-            db = MeetingDB()
+        with suppress(Exception):
             db.add_user_preference(
                 user_id=user_id,
                 category=pref['category'],
                 preference_val=pref['preference']
             )
-        except Exception:
-            continue
-
     return result_return
 
+
+@tool
+def get_user_info(username: str):
+    """
+    【功能】查询指定用户的全量画像数据，包括个性化偏好、历史会议记录及待办事项。
+    【输入限制】
+    - username: 用户的标准账号名称或系统登录名。
+    【提取字段】
+    - preferences: 用户已锁定的偏好设置字典（如主题、通知习惯等）。
+    - meetings: 该用户参与过的历史会议列表。
+    - todos: 分配给该用户的所有待办事项及其完成状态。
+    【应用场景】在执行任何个性化操作前（如生成会议总结、规划任务），用于初始化用户上下文背景。
+    """
+
+    user_id = db.get_user(username).get('user_id')
+    pref = db.get_user_preference_dict(user_id=user_id)
+    meetings = db.get_user_meetings(user_id=user_id)
+    # todos = db.get_user_todos(user_id=user_id)
+    return {
+        "preferences": pref,
+        "meetings": meetings,
+        # "todos": todos,
+        "todos": [],
+    }

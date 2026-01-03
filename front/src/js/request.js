@@ -1,7 +1,8 @@
 import axios from 'axios';
+import router from "@/router/index.js";
 
 const service = axios.create({
-    baseURL: import.meta.env.VITE_APP_BASE_API, // 从环境变量获取
+    baseURL: "http://localhost:5000/api", // 从环境变量获取
     headers: {'Content-Type': 'application/json;charset=utf-8'}
 });
 
@@ -17,13 +18,14 @@ service.interceptors.request.use(
 );
 
 service.interceptors.response.use(
-    (response) => {
-        const {code, msg, data} = response.data;
+    async (response) => {
+        const data = response.data;
+        const code = response.status;
 
         if (code === 200) return data;
-
         if (code === 401) {
-            // 执行登出、跳转逻辑
+            await router.push('/login');
+            return data;
         }
 
         return Promise.reject(new Error(msg || 'Error'));

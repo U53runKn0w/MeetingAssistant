@@ -13,7 +13,7 @@ class User(Base):
 
     user_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    password: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
@@ -51,6 +51,7 @@ class Attendee(Base):
 class Todo(Base):
     __tablename__ = "todos"
 
+    user_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     todo_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     meeting_id: Mapped[int] = mapped_column(ForeignKey("meetings.meeting_id", ondelete="CASCADE"))
     owner: Mapped[str] = mapped_column(String(100), nullable=False)

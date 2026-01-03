@@ -7,17 +7,15 @@ from db.models import Base, User, Meeting, Attendee, Todo, Preference
 
 
 class MeetingDB:
-    def __init__(self, db_url: str = "sqlite:///db.sqlite"):
-        # SQLite 默认需要 check_same_thread=False 来支持多线程
+    def __init__(self, db_url: str = "sqlite:///db/db.sqlite"):
         self.engine = create_engine(db_url, connect_args={"check_same_thread": False})
         self.SessionLocal = sessionmaker(bind=self.engine)
-        # 自动建表
         Base.metadata.create_all(self.engine)
 
     # --- 用户操作 ---
-    def add_user(self, username: str, password_hash: str) -> int:
+    def add_user(self, username: str, password: str) -> int:
         with self.SessionLocal() as session:
-            new_user = User(username=username, password_hash=password_hash)
+            new_user = User(username=username, password=password)
             session.add(new_user)
             session.commit()
             return new_user.user_id
@@ -27,6 +25,11 @@ class MeetingDB:
             stmt = select(User).where(User.username == username)
             user = session.execute(stmt).scalar_one_or_none()
             return {"user_id": user.user_id, "username": user.username} if user else None
+
+    def check_user(self, username: str, password: str):
+        with self.SessionLocal() as session:
+            stmt = select(User).where(User.username == username, User.password == password)
+            return session.execute(stmt).scalar_one_or_none() is not None
 
     # --- 会议操作 ---
     def add_meeting(self, user_id: int, subject: str, start_time: datetime,
@@ -97,6 +100,15 @@ class MeetingDB:
 
             session.commit()
 
+    def get_user_todos(self, user_id: int) -> List[Dict]:
+        with self.SessionLocal() as session:
+            stmt = select(Todo).where(Todo.user_id == user_id).order_by(Todo.deadline.desc())
+            results = session.execute(stmt).scalars().all()
+            return [
+                {"todo_id": t.todo_id, "task": t.task, "deadline": t.deadline, "status": t.status}
+                for t in results
+            ]
+
     # --- 用户偏好操作 (使用 Upsert 逻辑) ---
     def add_user_preference(self, user_id: int, category: str, preference_val: str):
         with self.SessionLocal() as session:
@@ -118,3 +130,6 @@ class MeetingDB:
             stmt = select(Preference).where(Preference.user_id == user_id)
             prefs = session.execute(stmt).scalars().all()
             return {p.category: p.preference for p in prefs}
+
+
+db = MeetingDB()

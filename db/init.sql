@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users
 (
     user_id       INTEGER PRIMARY KEY AUTOINCREMENT,
     username      TEXT UNIQUE NOT NULL,
-    password_hash TEXT        NOT NULL,
+    password TEXT        NOT NULL,
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -110,9 +110,9 @@ CREATE TABLE IF NOT EXISTS preference
 -- =========================================================
 
 -- 插入测试用户 (密码均为模拟哈希值)
-INSERT INTO users (username, password_hash)
-VALUES ('zhang_san', 'ef92b778bafe421e592046e'),
-       ('li_si', '827ccb0eea8a706c4c34a1689');
+INSERT INTO users (username, password)
+VALUES ('zhangsan', '123456'),
+       ('lisi', '123456');
 
 -- 插入用户偏好
 INSERT INTO preference (user_id, category, preference)

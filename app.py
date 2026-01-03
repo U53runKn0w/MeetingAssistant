@@ -4,81 +4,45 @@ from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 import asyncio
 
-from action.models import MeetingRecord
-from agent import create_agent, run_query_async, meeting
-from db.manager import MeetingDB
-from db.service import MeetingService
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, JWTManager
+
+from agent import create_agent, meeting
+from db.manager import db
 
 app = Flask(__name__)
-CORS(app)  # 允许所有来源跨域，开发阶段很方便
-
-agent = create_agent()
-
-TOOL_CONFIG = {
-    "extract_meeting_basic_info": {
-        "name": "会议基本信息",
-        "icon": "bi-info-circle",
-        "color": "#2563eb",  # 蓝色
-        "desc": "提取会议时间、参会人、主题等核心基础信息"
-    },
-    "parse_meeting_agenda_conclusion": {
-        "name": "议程与结论",
-        "icon": "bi-list-check",
-        "color": "#10b981",  # 绿色
-        "desc": "解析会议讨论议程、达成的结论和关键决策"
-    },
-    "generate_meeting_todo": {
-        "name": "待办事项",
-        "icon": "bi-calendar-check",
-        "color": "#f59e0b",  # 橙色
-        "desc": "生成需要执行的待办事项及责任人、截止时间"
-    },
-    "mark_meeting_follow_up": {
-        "name": "跟进项标记",
-        "icon": "bi-exclamation-triangle",
-        "color": "#8b5cf6",  # 紫色
-        "desc": "标记需要后续跟进的事项和重点关注内容"
-    }
-}
+CORS(app)  # 允许所有来源跨域
+app.config["JWT_SECRET_KEY"] = "meeting_assistant"
+jwt = JWTManager(app)
 
 
-@app.route("/api/config", methods=["GET"])
-def get_config():
-    return jsonify(TOOL_CONFIG)
+@app.route("/api/login", methods=["POST"])
+def login():
+    username = request.json.get("username")
+    password = request.json.get("password")
+    remember = request.json.get("remember")
+
+    if db.check_user(username, password):
+        # 创建访问令牌
+        if remember:
+            access_token = create_access_token(identity=username, expires_delta=False)
+        else:
+            access_token = create_access_token(identity=username)
+        return jsonify(access_token=access_token), 200
+
+    return jsonify({"msg": "用户名或密码错误"}), 401
 
 
-@app.route("/api/analyze", methods=["POST"])
-def analyze():
-    data = request.json
-    meeting_text = data.get("meeting_text")
-
-    if not meeting_text or meeting_text.strip() == "":
-        return jsonify({"error": "请输入有效的会议记录内容！"}), 400
-
-    results = {}
-    try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        tools = list(TOOL_CONFIG.keys())
-        for tool in tools:
-            results[tool] = loop.run_until_complete(
-                run_query_async(agent, f"Use {tool} on: {meeting_text}")
-            )
-
-        return jsonify({
-            "success": True,
-            "results": results
-        })
-
-    except Exception as e:
-        return jsonify({"error": f"分析失败：{str(e)}"}), 500
-
-
-@app.route('/api/chat', methods=['GET'])
+@app.route('/api/chat', methods=['POST'])
+@jwt_required()
 def chat():
-    m = request.args.get('meeting', meeting)
-    query = request.args.get('query', '请总结会议内容')
+    m = request.json.get('meeting', meeting)
+    if m.strip() == '':
+        m = meeting
+    query = request.json.get('query', '请总结会议内容')
+    if query.strip() == '':
+        query = '请总结会议内容'
+    # 获取当前登录用户的身份（即登录时传入的 identity）
+    current_user = get_jwt_identity()
 
     def generate():
         agent_executor = create_agent()
@@ -87,7 +51,7 @@ def chat():
 
         async def run_agent():
             async for event in agent_executor.astream_events(
-                    {"input": query, "meeting": m},
+                    {"input": query, "meeting": m, "username": current_user},
                     version="v2",
             ):
                 kind = event["event"]
@@ -122,44 +86,6 @@ def chat():
             loop.close()
 
     return Response(generate(), mimetype='text/event-stream')
-
-
-# 新增处理会议记录的API
-@app.route("/api/process_meeting", methods=["POST"])
-def process_meeting():
-    data = request.json
-    user_id = data.get("user_id")
-    meeting_text = data.get("meeting_text")
-
-    if not all([user_id, meeting_text]):
-        return jsonify({"error": "缺少用户ID或会议记录"}), 400
-
-    try:
-        # 1. 初始化服务
-        db = MeetingDB()
-        service = MeetingService(db)
-
-        # 2. 提取会议信息
-        meeting_record = MeetingRecord(
-            basic_info=extract_basic_info(meeting_text),
-            agendas=extract_agendas(meeting_text),
-            todos=extract_todos(meeting_text),
-            follow_ups=extract_follow_ups(meeting_text),
-            raw_text=meeting_text,
-            user_id=user_id
-        )
-
-        # 3. 保存到数据库
-        meeting_id = service.process_meeting_record(meeting_record)
-
-        return jsonify({
-            "success": True,
-            "meeting_id": meeting_id,
-            "message": "会议记录处理完成"
-        })
-
-    except Exception as e:
-        return jsonify({"error": f"处理失败: {str(e)}"}), 500
 
 
 if __name__ == "__main__":

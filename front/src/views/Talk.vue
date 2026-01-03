@@ -82,7 +82,9 @@
                 </div>
 
                 <div v-else-if="msg.type === 'observation'" class="alert alert-secondary py-2 mt-2">
-                  <div class="fw-bold small mb-1">工具返回结果:</div>
+                  <div class="fw-bold small mb-1">
+                    <i class="bi bi-tools me-1"></i>工具返回结果:
+                  </div>
                   <pre class="mb-0 small" style="white-space: pre-wrap;">{{ msg.text }}</pre>
                 </div>
 
@@ -94,6 +96,17 @@
                 <div v-else class="default-content">
                   <strong>{{ msg.type }}:</strong> {{ msg.text }}
                 </div>
+              </div>
+
+              <div v-if="isLoading && messages.length > 0">
+                <template v-if="messages[messages.length - 1].type === 'Action Input'">
+                  <div class="alert alert-secondary py-2 mt-2 border-0 shadow-sm opacity-75">
+                    <div class="d-flex align-items-center">
+                      <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                      <span class="small text-muted">工具正在处理中，请稍候...</span>
+                    </div>
+                  </div>
+                </template>
               </div>
             </div>
 
@@ -122,10 +135,13 @@
 </template>
 
 <script setup>
-import {ref, nextTick, watch} from 'vue';
+import {ref, nextTick, watch, onMounted} from 'vue';
 import {parseReActContent} from "@/js/util.js";
+import {fetchEventSource} from '@microsoft/fetch-event-source';
+import router from "@/router/index.js";
+import {dummyMeeting} from "@/js/etc.js";
 
-// 状态管理
+
 const meetingText = ref('');
 const userQuery = ref('');
 const isLoading = ref(false);
@@ -133,8 +149,8 @@ const error = ref(null);
 const messages = ref([]);
 const chatContainer = ref(null);
 const isUploading = ref(false);
+const url = 'http://localhost:5000/api/chat';
 
-// 音频文件处理逻辑
 const handleFileUpload = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
@@ -152,19 +168,7 @@ const handleFileUpload = async (event) => {
 
     // 模拟延时和返回结果
     await new Promise(resolve => setTimeout(resolve, 2000));
-    meetingText.value = `会议主题：智慧园区项目二期进度评审会
-会议时间：2025年12月29日（星期一）14:30 - 15:45
-会议地点：总公司第三会议室
-参会人员：王总（项目经理）、李工程师（后端开发）、张设计师（UI/UX）、赵专员（测试）、刘经理（市场部）
-会议内容记录：
-王总：“好，大家都到齐了，我们开始吧。今天主要是同步一下项目二期的进度，看看有没有什么风险。先从李工这边开始吧，后端开发进展怎么样？”
-李工程师：“王总，各位同事。我这边主要负责用户权限管理和数据看板两个模块。权限管理的接口开发已经完成了90%，预计本周三可以提测。但数据看板部分遇到个问题，因为需要对接外部API，对方服务器的响应速度不太稳定，可能会影响数据拉取的效率，这个风险需要提前知会大家。”
-王总：“嗯，这是个问题。张设计，你那边呢？前端界面和用户体验方案确定了吗？”
-张设计师：“UI稿已经全部完成了，和李工对接后就可以进入开发。不过关于主色调，市场部之前反馈说希望更活泼一些，我们做了两版方案，一版是沉稳的蓝色系，另一版是更有活力的橙色系，想听听刘经理的最终意见。”
-刘经理：“太好了，感谢张设计。我们市场部内部讨论后，还是倾向于橙色系，感觉更符合我们想传递的创新形象。当然，最终定稿还是需要王总您这边拍板。”
-王总：“可以，那就按市场部的意见，定橙色系方案。赵专员，测试这边有什么要说的吗？”
-赵专员：“我一期功能的回归测试本周内能完成。关于二期的测试，我建议等李工的第一个模块提测后，我们先进行一次小范围的冒烟测试，确保基础功能稳定，这样后续集成测试会更顺畅。”
-王总：“这个提议很好，就按你说的安排。好，我们总结一下今天的讨论和接下来的安排……”`;
+    meetingText.value = dummyMeeting;
   } catch (err) {
     error.value = "文件转录失败，请检查后端接口。";
   } finally {
@@ -173,56 +177,97 @@ const handleFileUpload = async (event) => {
   }
 };
 
-const sendMessage = () => {
+const sendMessage = async () => {
   if (!userQuery.value || isLoading.value) return;
 
-  const url = `http://localhost:5000/api/chat?meeting=${encodeURIComponent(meetingText.value)}&query=${encodeURIComponent(userQuery.value)}`;
+  const token = localStorage.getItem('token');
+  let headers = {
+    'Content-Type': 'application/json',
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
-  const eventSource = new EventSource(url);
   messages.value = [];
   isLoading.value = true;
-  userQuery.value = ''; // 清空问题输入框
+  error.value = null;
+  const currentQuery = userQuery.value; // 先备份
 
   let rawAgentBuffer = "";
   let agentStartIndex = -1;
 
-  eventSource.onmessage = (event) => {
-    const data = JSON.parse(event.data);
+  // 手动关闭连接
+  const ctrl = new AbortController();
 
-    switch (data.type) {
-      case 'observation':
-        messages.value.push({type: 'observation', text: data.content});
-        rawAgentBuffer = "";
-        agentStartIndex = -1;
-        break;
+  try {
+    await fetchEventSource(url, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({
+        meeting: meetingText.value,
+        query: currentQuery
+      }),
+      signal: ctrl.signal,
+      openWhenHidden: true,
 
-      case 'stream':
-        const chunk = data.content;
-        rawAgentBuffer += chunk;
-        const parsedSegments = parseReActContent(rawAgentBuffer);
+      onopen: async (response) => {
+        if (!response.ok) {
+          error.value = `请求错误: ${response.statusText}`;
 
-        if (agentStartIndex === -1) {
-          agentStartIndex = messages.value.length;
-          messages.value.push(...parsedSegments);
-        } else {
-          messages.value.splice(agentStartIndex, messages.value.length - agentStartIndex, ...parsedSegments);
+          if (response.status === 401) {
+            await router.push('/login');
+          }
         }
-        break;
+      },
 
-      case 'done':
+      onmessage: (event) => {
+        const data = JSON.parse(event.data);
+
+        switch (data.type) {
+          case 'observation':
+            messages.value.push({type: 'observation', text: data.content});
+            rawAgentBuffer = "";
+            agentStartIndex = -1;
+            break;
+
+          case 'stream':
+            const chunk = data.content;
+            rawAgentBuffer += chunk;
+            const parsedSegments = parseReActContent(rawAgentBuffer);
+
+            if (agentStartIndex === -1) {
+              agentStartIndex = messages.value.length;
+              messages.value.push(...parsedSegments);
+            } else {
+              messages.value.splice(agentStartIndex, messages.value.length - agentStartIndex, ...parsedSegments);
+            }
+            break;
+
+          case 'done':
+            isLoading.value = false;
+            ctrl.abort();
+            break;
+        }
+      },
+
+      onclose: () => {
         isLoading.value = false;
-        eventSource.close();
-        break;
-    }
-  };
+        console.log("连接正常关闭");
+      },
 
-  eventSource.onerror = (err) => {
-    console.error("SSE 异常:", err);
-    error.value = '连接中断，请检查后端服务是否开启。';
-    eventSource.close();
-    isLoading.value = false;
+      onerror: (err) => {
+        console.error("SSE 异常:", err);
+        error.value = '连接中断，请检查后端服务。';
+        isLoading.value = false;
+        ctrl.abort();
+        throw err;
+      }
+    });
+  } catch (err) {
+    console.error("Fetch Error:", err);
+    error.value = err.message;
   }
-}
+};
 
 // 自动滚动聊天区域
 watch(messages, () => {
@@ -239,7 +284,7 @@ watch(messages, () => {
   background-color: #f8f9fa;
   border-radius: 8px;
   border: 1px solid #dee2e6;
-  max-height: 600px;
+  max-height: 400px;
 }
 
 .message-block {

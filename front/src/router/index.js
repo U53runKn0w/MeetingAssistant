@@ -1,12 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import Result from "@/views/Result.vue";
 import Talk from "@/views/Talk.vue";
-import Test from "@/views/Test.vue";
+import Login from "@/views/Login.vue";
 
 const routes = [
     { path: '/', component: Talk },
     { path: '/result', component: Result },
-    { path: '/test', component: Test }
+    { path: '/login', component: Login }
 ];
 
 const router = createRouter({
