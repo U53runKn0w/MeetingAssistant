@@ -6,7 +6,7 @@ import asyncio
 
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, JWTManager
 
-from agent import create_agent, meeting
+from agent import create_agent, meeting, create_mindmap_chain
 from db.manager import db
 
 app = Flask(__name__)
@@ -52,6 +52,54 @@ def chat():
         async def run_agent():
             async for event in agent_executor.astream_events(
                     {"input": query, "meeting": m, "username": current_user},
+                    version="v2",
+            ):
+                kind = event["event"]
+
+                # 不包含Observation
+                if kind == "on_chat_model_stream":
+                    content = event["data"]["chunk"].content
+                    if content:
+                        yield f"data: {json.dumps({'type': 'stream', 'content': content})}\n\n"
+
+                elif kind == "on_tool_start":
+                    tool_name = event["name"]
+                    yield f"data: {json.dumps({'type': 'status', 'content': f'正在调用工具: {tool_name}...'})}\n\n"
+
+                elif kind == "on_tool_end":
+                    tool_output = event["data"].get("output")
+                    # 重要：手动构造 Observation 标签发给前端
+                    yield f"data: {json.dumps({'type': 'observation', 'content': f'Observation: {tool_output}'})}\n\n"
+
+                elif kind == "on_chain_end" and event["name"] == "AgentExecutor":
+                    yield f"data: {json.dumps({'type': 'done', 'content': ''})}\n\n"
+
+        gen = run_agent()
+
+        try:
+            while True:
+                chunk = loop.run_until_complete(gen.__anext__())
+                yield chunk
+        except StopAsyncIteration:
+            pass
+        finally:
+            loop.close()
+
+    return Response(generate(), mimetype='text/event-stream')
+
+@app.route('/api/mindmap', methods=['POST'])
+@jwt_required()
+def gen_mindmap():
+    c = request.json.get('conclusion', '')
+
+    def generate():
+        chain = create_mindmap_chain()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        async def run_agent():
+            async for event in chain.astream_events(
+                    {"conclusion": c},
                     version="v2",
             ):
                 kind = event["event"]

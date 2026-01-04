@@ -1,3 +1,4 @@
+import json
 from contextlib import suppress
 from typing import List
 from langchain_core.tools import tool
@@ -161,8 +162,8 @@ def get_user_info(username: str):
     pref = db.get_user_preference_dict(user_id=user_id)
     meetings = db.get_user_meetings(user_id=user_id)
     todos = db.get_user_todos(user_id=user_id)
-    return {
+    return json.dumps({
         "preferences": pref,
         "meetings": meetings,
         "todos": todos,
-    }
+    })

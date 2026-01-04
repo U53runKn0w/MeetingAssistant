@@ -15,3 +15,6 @@ with open('config/meeting.txt', 'r', encoding='utf-8') as f:
 
 with open('config/template_no_meeting.txt', 'r', encoding='utf-8') as f:
     template_no_meeting = f.read()
+
+with open('config/template_mindmap.txt', 'r', encoding='utf-8') as f:
+    template_mindmap = f.read()

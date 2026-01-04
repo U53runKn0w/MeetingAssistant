@@ -1,11 +1,12 @@
 from langchain_classic.agents import AgentExecutor, create_react_agent
+from langchain_core.output_parsers import StrOutputParser
 from langchain_deepseek import ChatDeepSeek
 from langchain_core.prompts import PromptTemplate
 import config
 import asyncio
 from action.tools import extract_meeting_basic_info, parse_meeting_agenda_conclusion, generate_meeting_todo, \
     mark_meeting_follow_up, generate_user_preferences, get_user_info
-from config import template, meeting, template_no_meeting
+from config import template, meeting, template_no_meeting, template_mindmap
 
 
 def create_agent(callbacks=None):
@@ -78,6 +79,24 @@ def create_pref_agent(callbacks=None):
     )
 
     return agent_executor
+
+
+def create_mindmap_chain(callbacks=None):
+    callbacks = callbacks or []
+
+    llm = ChatDeepSeek(
+        model="deepseek-chat",
+        temperature=0,
+        max_retries=2,
+        callbacks=callbacks,
+        streaming=True,
+        stop_sequences=["\nObservation:"],
+    )
+
+    prompt = PromptTemplate.from_template(template_mindmap)
+    chain = prompt | llm | StrOutputParser()
+
+    return chain
 
 
 async def run_query_async(agent_executor, query: str, has_meeting: bool = True):
