@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from langchain_core.prompts import ChatPromptTemplate
 
 from db.manager import db
-from db.models import Meeting
 from .models import BasicInfo, AgendaConclusion, TodoItem, FollowUp, Preference
 
 shared_llm = ChatDeepSeek(model="deepseek-chat", temperature=0, streaming=True)
@@ -16,18 +15,19 @@ shared_llm = ChatDeepSeek(model="deepseek-chat", temperature=0, streaming=True)
 @tool
 def extract_meeting_basic_info(text: str) -> dict:
     """
-    【功能】从会议的关键片段中提取元数据（基础信息）。
-    【输入限制】输入应为包含会议背景、自我介绍或开场白的关键语句，而非全量冗长的转录文本。
-    【提取字段】
-    - attendees: 参会人员姓名列表
-    - time: 会议具体日期及时间点
-    - subject: 会议讨论的核心主题
-    - duration: 会议总耗时
-    【应用场景】用于填充会议纪要的头部基本信息。
+    【适用场景】当需要初始化会议纪要的头部信息（主题、时间、人员、时长）时使用。
+    【调用时机】通常在处理会议录音开场白或会议通知文本时首先调用。
+    【参数要求】text 应为会议的前 5-10% 内容或包含自我介绍的关键片段。
+    【返回内容】返回包含 attendees(list), time(ISO string), subject(str), duration(str) 的字典。
     """
     structured_llm = shared_llm.with_structured_output(BasicInfo)
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "从会议文本中提取参会人、时间、主题和时长，时间需转换为ISO格式"),
+        ("system", """你是一个精准的元数据提取专家。请从会议片段中提取信息：
+         1. 参会人：仅提取人名，去除职位，存入列表。
+         2. 时间：识别日期和具体时刻，统一转换为 ISO 8601 格式（YYYY-MM-DD HH:mm）。
+         3. 主题：用 15 字以内的简洁短语概括。
+         4. 时长：提取如“1小时”、“45分钟”等描述。
+         注意：若某项信息未提及，请填入“未知”或空列表，严禁幻想。"""),
         ("user", "{text}")
     ])
     chain = prompt | structured_llm
@@ -38,12 +38,10 @@ def extract_meeting_basic_info(text: str) -> dict:
 @tool
 def parse_meeting_agenda_conclusion(text: str) -> List[dict]:
     """
-    【功能】分析会议关键讨论点并总结结论。
-    【输入限制】输入应为经过初步筛选的、包含实质性讨论内容的关键句集合，无关部分请用...省略。
-    【提取字段】
-    - agenda: 核心议题或具体的讨论点
-    - conclusion: 最终达成的共识、定论或处理方案
-    【应用场景】用于构建会议纪要的正文“议程回顾”部分。
+    【适用场景】提取会议的核心讨论点及最终达成的共识。
+    【调用时机】用于构建纪要的“议程回顾”或“核心决议”模块。
+    【参数要求】传入包含实质性讨论的文本段落。若文本过长，请分段调用。
+    【返回内容】返回对象列表，每个对象包含 agenda(议题) 和 conclusion(结论)。
     """
 
     class AgendaList(BaseModel):
@@ -51,7 +49,10 @@ def parse_meeting_agenda_conclusion(text: str) -> List[dict]:
 
     structured_llm = shared_llm.with_structured_output(AgendaList)
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "你是一个会议记录员。请基于关键讨论内容，提取所有核心议题及其对应结论。"),
+        ("system", """你是一个专业的会议速记员。请对关键讨论内容进行结构化提炼：
+         - 议程（agenda）：描述讨论的具体问题或事项（如“关于Q3预算的审核”）。
+         - 结论（conclusion）：描述最终达成的决定、共识或明确的现状（如“通过预算，但需削减20%营销费用”）。
+         注意：忽略寒暄和无意义的插嘴，每项议程必须对应一个明确的结论。"""),
         ("user", "{text}")
     ])
     chain = prompt | structured_llm
@@ -62,13 +63,10 @@ def parse_meeting_agenda_conclusion(text: str) -> List[dict]:
 @tool
 def generate_meeting_todo(text: str) -> List[dict]:
     """
-    【功能】从会议执行相关的关键句中提取 Action Items（待办事项）。
-    【输入限制】输入应为涉及任务分配、责任归属、截止日期要求的关键语句，无关部分请用...省略。
-    【提取字段】
-    - owner: 明确的任务负责人姓名
-    - task: 具体的任务描述
-    - deadline: 完成时限（若未提及则填“待确认”）
-    【应用场景】用于生成会议纪要底部的任务分工表。
+    【适用场景】识别会议中明确分配的任务、责任人及截止日期。
+    【调用时机】当文本出现“负责”、“跟进”、“完成”、“截止日期”等动词时调用。
+    【参数要求】包含任务分配指令的关键句。
+    【返回内容】返回 todo 列表，包含 owner(负责人), task(任务描述), deadline(截止时间，默认为“待确认”)。
     """
 
     class TodoList(BaseModel):
@@ -76,7 +74,11 @@ def generate_meeting_todo(text: str) -> List[dict]:
 
     structured_llm = shared_llm.with_structured_output(TodoList)
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "你是一个项目经理。请从提供的关键句中识别待办事项，确保包含负责人和具体任务。"),
+        ("system", """你是一个严谨的项目经理。请识别文本中的行动项（Action Items）：
+         1. 负责人（owner）：必须是具体的人名；若指代不明（如“研发部”），请填入部门名称。
+         2. 任务（task）：描述具体要做的动作，以动词开头。
+         3. 截止日期（deadline）：提取具体日期；若未提及，统一填入“待确认”。
+         注意：只提取明确要求“去做”的事项，排除“建议考虑”等模糊表态。"""),
         ("user", "{text}")
     ])
     chain = prompt | structured_llm
@@ -87,12 +89,10 @@ def generate_meeting_todo(text: str) -> List[dict]:
 @tool
 def mark_meeting_follow_up(text: str) -> List[dict]:
     """
-    【功能】识别关键句中隐含的风险、争议或后续需调研的未决事项。
-    【输入限制】输入应为表现出意见分歧、不确定性或需要“会后再议”的关键描述，无关部分请用...省略。
-    【提取字段】
-    - topic: 争议点或待核实的技术/业务问题
-    - reason: 需要跟进的具体原因（如：数据不足、需跨部门协调等）
-    【应用场景】用于风险提示及作为下次会议的预研输入。
+    【适用场景】识别会议中未达成一致、存在争议、有风险或需要会后调研的事项。
+    【调用时机】当讨论出现“不确定”、“以后再说”、“需要确认”、“存在风险”等信号词时使用。
+    【参数要求】反映意见分歧或不确定性的上下文。
+    【注意】不要将已确定的 Todo 误认为 Follow-up。
     """
 
     class FollowUpList(BaseModel):
@@ -100,7 +100,10 @@ def mark_meeting_follow_up(text: str) -> List[dict]:
 
     structured_llm = shared_llm.with_structured_output(FollowUpList)
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "你是一个风险控制专家。请从关键句中识别出尚未解决、存在争议或需要进一步核实的点。"),
+        ("system", """你是一个敏锐的风险控制专家。请识别会议中的“尾巴”：
+         - 争议点（topic）：双方各执一词、尚未达成一致的矛盾点。
+         - 待核实（reason）：因数据缺失、权限不足或时间限制而推迟到会后处理的事项。
+         注意：区分“待办事项”与“跟进事项”，后者通常包含不确定性和需要进一步调研的属性。"""),
         ("user", "{text}")
     ])
     chain = prompt | structured_llm
@@ -111,14 +114,10 @@ def mark_meeting_follow_up(text: str) -> List[dict]:
 @tool
 def generate_user_preferences(text: str, user_id: int) -> List[dict]:
     """
-    【功能】从用户描述中提取个性化偏好设置。
-    【输入限制】
-    - text: 输入应为用户明确表达的喜好、习惯或特定需求的描述。
-    - user_id: 用于标识用户身份的id。
-    【提取字段】
-    - category: 偏好类别（如：通知设置、界面主题、语言偏好等）
-    - preference: 具体的偏好值或选项
-    【应用场景】用于定制化用户体验及系统推荐。
+    【适用场景】当用户明确提出对总结格式、称呼方式、关注重点有特殊要求时，将其持久化到数据库。
+    【调用时机】用户说“以后请叫我X总”、“总结里多关注技术细节”或“我不需要表格”等个性化指令时。
+    【参数要求】text 为用户的原始要求短语，user_id 必须为整数。
+    【副作用】此操作会直接修改数据库，请在确认用户意图后调用。
     """
 
     class PreferenceList(BaseModel):
@@ -126,9 +125,13 @@ def generate_user_preferences(text: str, user_id: int) -> List[dict]:
 
     structured_llm = shared_llm.with_structured_output(PreferenceList)
     prompt_analyze_preference = ChatPromptTemplate.from_messages([
-        ("system", """你是一个用户体验设计师，你需要从用户问题中提取偏好，并直接输出标准化结果：
-         1. 若新类别与现有类别（{existing_prefs}）语义相同（如“所在部门”和“部门”），必须统一为现有类别名称
-         2. 若为新类别，需简化名称（如“我希望的称呼方式”→“称呼”）"""),
+        ("system", """你是一个资深用户体验设计师。你的目标是将非结构化的用户要求转化为标准偏好：
+         1. 归类逻辑：
+            - 若涉及“怎么称呼”、“语气” -> 类别：个人身份
+            - 若涉及“表格”、“HTML”、“排版” -> 类别：输出格式
+            - 若涉及“关注点”、“只看老板说话” -> 类别：内容权重
+         2. 标准化：参考现有类别 {existing_prefs}，语义相近的必须强行统一，严禁创建冗余类别。
+         3. 简洁化：偏好值（preference）应为具体的设定词（如“精简模式”、“专业商务”）。"""),
         ("user", "{text}")
     ])
     chain = prompt_analyze_preference | structured_llm
@@ -149,17 +152,13 @@ def generate_user_preferences(text: str, user_id: int) -> List[dict]:
 @tool
 def get_user_info(username: str):
     """
-    【功能】查询指定用户在提问前的历史画像数据，包括个性化偏好、历史会议记录及历史待办事项。
-    【输入限制】
-    - username: 用户的标准账号名称或系统登录名。
-    【提取字段】
-    - preferences: 用户已锁定的偏好设置字典（如主题、通知习惯等）。
-    - meetings: 该用户参与过的历史会议列表。
-    - todos: 分配给该用户的所有待办事项及其完成状态。
-    【应用场景】在执行任何个性化操作前（如生成会议总结、规划任务），用于初始化用户上下文背景。
+    【适用场景】Agent 启动时的“第一步”操作。用于加载用户的个性化画像。
+    【调用时机】在处理任何具体请求前，先调用此工具以了解用户的偏好（Preference）和历史背景。
+    【参数要求】username 必须是系统中存在的标准用户名。
+    【输出价值】获取到的 preferences 应用于指导 Final Answer 的 HTML 风格和内容侧重点。
     """
 
-    user_id = db.get_user(username).get('user_id')
+    user_id = db.get_user(username.strip()).get('user_id')
     pref = db.get_user_preference_dict(user_id=user_id)
     meetings = db.get_user_meetings(user_id=user_id)
     todos = db.get_user_todos(user_id=user_id)
