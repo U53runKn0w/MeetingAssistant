@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from langchain_core.prompts import ChatPromptTemplate
 
 from db.manager import db
+from db.models import Meeting
 from .models import BasicInfo, AgendaConclusion, TodoItem, FollowUp, Preference
 
 shared_llm = ChatDeepSeek(model="deepseek-chat", temperature=0, streaming=True)
@@ -158,12 +159,13 @@ def get_user_info(username: str):
     【应用场景】在执行任何个性化操作前（如生成会议总结、规划任务），用于初始化用户上下文背景。
     """
 
+    class UserInfo(BaseModel):
+        preferences: List[Preference]
+        meetings: List[Meeting]
+        todos: List[TodoItem]
+
     user_id = db.get_user(username).get('user_id')
     pref = db.get_user_preference_dict(user_id=user_id)
     meetings = db.get_user_meetings(user_id=user_id)
     todos = db.get_user_todos(user_id=user_id)
-    return {
-        "preferences": pref,
-        "meetings": meetings,
-        "todos": todos,
-    }
+    return UserInfo(preferences=pref, meetings=meetings, todos=todos)

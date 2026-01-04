@@ -80,22 +80,16 @@ const fetchMeetingDetails = async () => {
   const conversation = useChat();
   const rawData = conversation.extractObservation();
 
-  delete rawData["get_user_info"];
-
-  // 对每一项进行解析
   const parsedResults = {};
   for (const key in rawData) {
-    try {
-      let strData = rawData[key];
-      // 清洗数据：1. 处理 Python datetime 对象； 2. 将单引号替换为双引号
-      const sanitized = strData
-          .replace(/datetime\.datetime\((.*?)\)/g, '"$1"')
-          .replace(/'/g, '"');
-
-      parsedResults[key] = JSON.parse(sanitized);
-    } catch (e) {
-      console.warn(`解析 ${key} 失败，将使用原始字符串`, e);
-      parsedResults[key] = rawData[key];
+    if (key !== "get_user_info") {
+      try {
+        let strData = rawData[key];
+        parsedResults[key] = JSON.parse(strData);
+      } catch (e) {
+        console.warn(`解析 ${key} 失败，将使用原始字符串`, e);
+        parsedResults[key] = rawData[key];
+      }
     }
   }
 
