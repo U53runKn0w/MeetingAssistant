@@ -164,7 +164,6 @@ let url;
 const chat = useChat();
 const meeting = useMeeting();
 const {question: userQuery} = storeToRefs(chat)
-const {text: meetingText} = storeToRefs(meeting)
 const {error: error} = storeToRefs(meeting)
 const {messages: messages} = storeToRefs(chat)
 const isLoading = ref(false);
@@ -206,7 +205,7 @@ const sendMessage = async () => {
       method: 'POST',
       headers: createHeaders(),
       body: JSON.stringify({
-        meeting: meetingText.value,
+        meeting: meeting.text,
         query: currentQuery
       }),
       signal: ctrl.signal,

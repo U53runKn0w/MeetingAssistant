@@ -14,7 +14,7 @@
         <div class="row g-4">
           <MeetingInput></MeetingInput>
           <ChatBox></ChatBox>
-          <ChatButtons></ChatButtons>
+          <ChatTools></ChatTools>
         </div>
       </div>
     </div>
@@ -25,7 +25,7 @@
 import Mine from "@/components/Mine.vue";
 import MeetingInput from "@/components/MeetingInput.vue";
 import ChatBox from "@/components/ChatBox.vue";
-import ChatButtons from "@/components/ChatButtons.vue";
+import ChatTools from "@/components/ChatTools.vue";
 import Sidebar from "@/components/Sidebar.vue";
 </script>
 

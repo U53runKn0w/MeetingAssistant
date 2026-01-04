@@ -52,11 +52,11 @@
 <script setup>
 import {dummyMeeting} from "@/js/etc.js";
 import {ref} from "vue";
-import {useChat} from "@/store/chat.js";
 import {storeToRefs} from "pinia";
+import {useMeeting} from "@/store/meeting.js";
 
-const chat = useChat();
-const {meeting: meetingText} = storeToRefs(chat);
+const meeting = useMeeting();
+const {text: meetingText} = storeToRefs(meeting);
 const isUploading = ref(false);
 const error = ref(null);
 
@@ -77,7 +77,6 @@ const handleFileUpload = async (event) => {
 
     await new Promise(resolve => setTimeout(resolve, 2000));
     meetingText.value = dummyMeeting;
-    chat.meeting = meetingText.value;
   } catch (err) {
     error.value = "文件转录失败，请检查后端接口。";
   } finally {
@@ -96,11 +95,6 @@ pre {
   background: #f1f1f1;
   padding: 10px;
   border-radius: 4px;
-}
-
-/* 让全屏下的回答字体稍大，方便阅读 */
-.modal-body .fs-5 {
-  line-height: 1.6;
 }
 
 /* 优化代码块在全屏下的显示 */

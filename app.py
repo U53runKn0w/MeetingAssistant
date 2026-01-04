@@ -43,7 +43,6 @@ def chat():
     return Response(generate_answer(agent_executor, {"input": query, "meeting": m, "username": username}),
                     mimetype='text/event-stream')
 
-
 @app.route('/api/chat/test', methods=['POST'])
 @jwt_required()
 def chat_test():

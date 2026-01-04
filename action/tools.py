@@ -157,7 +157,7 @@ def generate_user_preferences(text: str, user_id: int) -> List[dict]:
 
 
 @tool
-def get_user_info(username: str):
+def get_user_info(username: str) -> dict:
     """
     【适用场景】Agent 启动时的“第一步”操作。用于加载用户的个性化画像。
     【调用时机】在处理任何具体请求前，先调用此工具以了解用户的偏好（Preference）和历史背景。
