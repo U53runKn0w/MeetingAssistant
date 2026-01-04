@@ -1,3 +1,5 @@
+import json
+
 from langchain_classic.agents import AgentExecutor, create_react_agent
 from langchain_core.output_parsers import StrOutputParser
 from langchain_deepseek import ChatDeepSeek
@@ -124,6 +126,45 @@ async def run_query_async(agent_executor, query: str, has_meeting: bool = True):
                 if content.endswith("\n\n"):
                     content = content[:-1]
                 print(content, end="", flush=True)
+
+
+async def run_agent_async_generator(executor, data):
+    async for event in executor.astream_events(
+            data,
+            version="v2",
+    ):
+        kind = event["event"]
+
+        if kind == "on_chat_model_stream":
+            content = event["data"]["chunk"].content
+            if content:
+                yield f"data: {json.dumps({'type': 'stream', 'content': content})}\n\n"
+
+        elif kind == "on_tool_start":
+            tool_name = event["name"]
+            yield f"data: {json.dumps({'type': 'status', 'content': f'正在调用工具: {tool_name}...'})}\n\n"
+
+        elif kind == "on_tool_end":
+            tool_output = event["data"].get("output")
+            yield f"data: {json.dumps({'type': 'observation', 'content': f'Observation: {tool_output}'})}\n\n"
+
+        elif kind == "on_chain_end" and event["name"] == "AgentExecutor":
+            yield f"data: {json.dumps({'type': 'done', 'content': ''})}\n\n"
+
+
+def generate_answer(chain, data):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    gen = run_agent_async_generator(chain, data)
+
+    try:
+        while True:
+            chunk = loop.run_until_complete(gen.__anext__())
+            yield chunk
+    except StopAsyncIteration:
+        pass
+    finally:
+        loop.close()
 
 
 if __name__ == "__main__":
