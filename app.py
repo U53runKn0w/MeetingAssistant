@@ -87,6 +87,32 @@ def chat():
 
     return Response(generate(), mimetype='text/event-stream')
 
+
+@app.route('/api/chat/test', methods=['POST'])
+@jwt_required()
+def chat_test():
+    def generate():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        async def run_agent():
+            with open("config/demo_result.txt") as f:
+                yield f.read()
+
+        gen = run_agent()
+
+        try:
+            while True:
+                chunk = loop.run_until_complete(gen.__anext__())
+                yield chunk
+        except StopAsyncIteration:
+            pass
+        finally:
+            loop.close()
+
+    return Response(generate(), mimetype='text/event-stream')
+
+
 @app.route('/api/mindmap', methods=['POST'])
 @jwt_required()
 def gen_mindmap():

@@ -2,7 +2,7 @@ import axios from 'axios';
 import router from "@/router/index.js";
 
 const service = axios.create({
-    baseURL: "http://localhost:5000/api", // 从环境变量获取
+    baseURL: "http://localhost:5000/api",
     headers: {'Content-Type': 'application/json;charset=utf-8'}
 });
 
@@ -31,7 +31,6 @@ service.interceptors.response.use(
         return Promise.reject(new Error(msg || 'Error'));
     },
     (error) => {
-        // 处理 HTTP 状态码（404, 500 等）
         console.error('Network Error:', error.message);
         return Promise.reject(error);
     }

@@ -22,5 +22,4 @@ import Chat from "@/components/Chat.vue";
 import ChatButtons from "@/components/ChatButtons.vue";
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

@@ -127,6 +127,17 @@
               {{ isLoading ? '分析中' : '发送' }}
             </button>
           </div>
+          <div class="form-check">
+            <input
+                class="form-check-input"
+                type="checkbox"
+                id="flexCheckDefault"
+                v-model="isTest"
+            >
+            <label class="form-check-label" for="flexCheckDefault">
+              测试
+            </label>
+          </div>
           <p class="text-muted small mt-2">提示：系统将结合左侧录入的会议内容回答您的问题。</p>
         </form>
       </div>
@@ -143,7 +154,10 @@ import {storeToRefs} from "pinia";
 import {nextTick, onMounted, ref, watch} from "vue";
 import {useMeeting} from "@/store/meeting.js";
 
-const url = 'http://localhost:5000/api/chat';
+
+const productUrl = 'http://localhost:5000/api/chat';
+const testUrl = 'http://localhost:5000/api/chat/test';
+let url;
 const chat = useChat();
 const meeting = useMeeting();
 const {question: userQuery} = storeToRefs(chat)
@@ -151,26 +165,27 @@ const {text: meetingText} = storeToRefs(meeting)
 const {error: error} = storeToRefs(meeting)
 const {messages: messages} = storeToRefs(chat)
 const isLoading = ref(false);
-const toResultButtonShow = ref(false);
 const chatContainer = ref(null);
 const isFullScreen = ref(false);
 const fullChatContainer = ref(null);
+const isTest = ref(false);
 
 onMounted(() => {
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') isFullScreen.value = false;
+    if (e.key === 'Delete') isFullScreen.value = true;
   });
-
-  if (chat.messages.length > 0 && chat.question.length > 0) {
-    toResultButtonShow.value = true;
-  }
 })
 
 const sendMessage = async () => {
   if (!userQuery.value || isLoading.value) return;
 
-  toResultButtonShow.value = false;
-
+  if (isTest.value) {
+    url = testUrl;
+  } else {
+    url = productUrl;
+  }
+  chat.buttonsShow = false;
   messages.value = [];
   isLoading.value = true;
   error.value = null;
@@ -253,8 +268,6 @@ const sendMessage = async () => {
   } catch (err) {
     console.error("Fetch Error:", err);
     error.value = err.message;
-  } finally {
-    toResultButtonShow.value = true;
   }
 };
 
@@ -273,7 +286,7 @@ watch(messages, () => {
   });
 }, {deep: true});
 
-// 3. 额外处理：当用户点击“全屏”按钮打开弹窗时，立即滚动到底部
+// 全屏打开弹窗时，立即滚动到底部
 watch(isFullScreen, (newVal) => {
   if (newVal) {
     nextTick(() => {

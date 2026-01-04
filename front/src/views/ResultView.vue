@@ -6,7 +6,7 @@
     </header>
 
     <div class="row row-cols-1 row-cols-md-2 g-4 mb-5">
-      <div v-for="(result, key) in results" :key="key" class="col">
+      <div v-for="(data, key) in results" :key="key" class="col">
         <div class="card result-card h-100 shadow-sm border-0">
           <div :class="['card-header py-3', toolConfigs[key]?.class]">
             <h5 class="card-title mb-0 text-white">
@@ -15,8 +15,51 @@
             </h5>
           </div>
           <div class="card-body bg-white">
-            <div class="result-content text-secondary" style="white-space: pre-line;">
-              {{ result || '暂无分析数据' }}
+            <div v-if="!data" class="text-muted text-center py-4">暂无分析数据</div>
+
+            <div v-else-if="key === 'extract_meeting_basic_info'" class="info-list">
+              <div class="mb-2"><strong>主题：</strong> <span class=" bg-light text-dark">{{ data.subject }}</span>
+              </div>
+              <div class="mb-2"><strong>时间：</strong> {{ formatDateTime(data.time) }} ({{ data.duration }})</div>
+              <div>
+                <strong>参会人员：</strong>
+                <div class="mt-2">
+                  <span v-for="person in data.attendees" :key="person"
+                        class="badge rounded-pill bg-outline-primary me-2 mb-2">
+                    {{ person }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div v-else-if="key === 'parse_meeting_agenda_conclusion'" class="agenda-list">
+              <div v-for="(item, index) in data" :key="index" class="agenda-item border-bottom pb-2 mb-2">
+                <div class="fw-bold text-primary mb-1 small"><i class="bi bi-dot"></i> {{ item.agenda }}</div>
+                <div class="ps-3 text-secondary small">{{ item.conclusion }}</div>
+              </div>
+            </div>
+
+            <div v-else-if="key === 'generate_meeting_todo'" class="todo-list">
+              <div v-for="(todo, index) in data" :key="index" class="d-flex align-items-start mb-3 todo-item">
+                <div class="todo-check me-2 mt-1"><i class="bi bi-check2-square text-warning"></i></div>
+                <div>
+                  <div class="fw-bold small">{{ todo.task }}</div>
+                  <div class="text-muted extra-small">
+                    责任人：<span class="text-dark">{{ todo.owner }}</span> | 截止：{{ todo.deadline }}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else-if="key === 'mark_meeting_follow_up'" class="follow-up-list">
+              <div v-for="(follow, index) in data" :key="index" class="mb-3">
+                <div class="fw-bold small text-info"><i class="bi bi-question-circle me-1"></i> {{ follow.topic }}</div>
+                <div class="ps-3 border-start ms-1 text-muted small mt-1">{{ follow.reason }}</div>
+              </div>
+            </div>
+
+            <div v-else class="result-content text-secondary">
+              {{ data }}
             </div>
           </div>
         </div>
@@ -40,35 +83,31 @@ import {useChat} from "@/store/chat.js";
 const router = useRouter();
 const isLoading = ref(true);
 
-
 const results = ref({
-  extract_meeting_basic_info: "",
-  parse_meeting_agenda_conclusion: "",
-  generate_meeting_todo: "",
-  mark_meeting_follow_up: ""
+  extract_meeting_basic_info: null,
+  parse_meeting_agenda_conclusion: null,
+  generate_meeting_todo: null,
+  mark_meeting_follow_up: null
 });
 
 const toolConfigs = {
-  extract_meeting_basic_info: {
-    name: "会议基本信息",
-    icon: "bi-info-circle-fill",
-    class: "bg-primary"
-  },
-  parse_meeting_agenda_conclusion: {
-    name: "议程与结论",
-    icon: "bi-journal-check",
-    class: "bg-success"
-  },
-  generate_meeting_todo: {
-    name: "待办事项 (To-do)",
-    icon: "bi-clipboard-data-fill",
-    class: "bg-warning text-dark"
-  },
-  mark_meeting_follow_up: {
-    name: "跟进事项",
-    icon: "bi-exclamation-diamond-fill",
-    class: "bg-info text-white"
-  }
+  extract_meeting_basic_info: {name: "会议基本信息", icon: "bi-info-circle-fill", class: "bg-primary"},
+  parse_meeting_agenda_conclusion: {name: "议程与结论", icon: "bi-journal-check", class: "bg-success"},
+  generate_meeting_todo: {name: "待办事项 (To-do)", icon: "bi-clipboard-data-fill", class: "bg-warning text-dark"},
+  mark_meeting_follow_up: {name: "跟进事项", icon: "bi-exclamation-diamond-fill", class: "bg-info text-white"}
+};
+
+// 工具函数：格式化时间
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 };
 
 onMounted(() => {
@@ -85,10 +124,16 @@ const fetchMeetingDetails = async () => {
     if (key !== "get_user_info") {
       try {
         let strData = rawData[key];
-        parsedResults[key] = JSON.parse(strData);
+        // 关键修正：如果内容是单引号的字符串，JSON.parse 会失败，需要转换
+        if (typeof strData === 'string') {
+          const validJsonStr = strData.replace(/'/g, '"');
+          parsedResults[key] = JSON.parse(validJsonStr);
+        } else {
+          parsedResults[key] = strData;
+        }
       } catch (e) {
-        console.warn(`解析 ${key} 失败，将使用原始字符串`, e);
-        parsedResults[key] = rawData[key];
+        console.warn(`解析 ${key} 失败`, e);
+        parsedResults[key] = null;
       }
     }
   }
@@ -99,7 +144,6 @@ const fetchMeetingDetails = async () => {
 
 const goBack = () => router.push('/');
 </script>
-
 
 <style scoped src="@/assets/results.css"></style>
 <style scoped>
@@ -133,27 +177,55 @@ const goBack = () => router.push('/');
   font-size: 0.95rem;
 }
 
-/* 针对不同工具的微调 */
-.bg-primary {
-  background: linear-gradient(45deg, #0d6efd, #0a58ca) !important;
-}
-
-.bg-success {
-  background: linear-gradient(45deg, #198754, #146c43) !important;
-}
-
-.bg-warning {
-  background: linear-gradient(45deg, #ffc107, #ffca2c) !important;
-}
-
-.bg-info {
-  background: linear-gradient(45deg, #0dcaf0, #0bacbe) !important;
-}
-
 /* 响应式调整 */
 @media (max-width: 768px) {
   .display-6 {
     font-size: 1.5rem;
   }
+}
+
+/* 继承你原有的样式并增加以下部分 */
+.bg-outline-primary {
+  border: 1px solid #0d6efd;
+  color: #0d6efd;
+  background: transparent;
+}
+
+.agenda-item:last-child {
+  border-bottom: none !important;
+}
+
+.extra-small {
+  font-size: 0.75rem;
+}
+
+.todo-item {
+  transition: all 0.2s;
+}
+
+.todo-item:hover {
+  background: #fff9e6;
+  border-radius: 4px;
+}
+
+.border-start {
+  border-left: 3px solid #0dcaf0 !important;
+}
+
+/* 针对不同工具的渐变增强 */
+.bg-primary {
+  background: linear-gradient(45deg, #4e73df, #224abe) !important;
+}
+
+.bg-success {
+  background: linear-gradient(45deg, #1cc88a, #13855c) !important;
+}
+
+.bg-warning {
+  background: linear-gradient(45deg, #f6c23e, #dda20a) !important;
+}
+
+.bg-info {
+  background: linear-gradient(45deg, #36b9cc, #258391) !important;
 }
 </style>

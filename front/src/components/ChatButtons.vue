@@ -51,7 +51,7 @@
 </template>
 
 <script setup>
-import {ref} from "vue";
+import {onMounted, ref} from "vue";
 import mermaid from 'mermaid';
 import router from "@/router/index.js";
 import {storeToRefs} from "pinia";
@@ -70,6 +70,12 @@ const chat = useChat();
 const {buttonsShow: buttonsShow} = storeToRefs(chat);
 const {error: error} = storeToRefs(meeting)
 
+onMounted(() => {
+  if (chat.messages.length > 0 && chat.question.length > 0) {
+    buttonsShow.value = true;
+  }
+})
+
 const toResult = async () => {
   await router.push('/result');
 }
@@ -78,6 +84,8 @@ mermaid.initialize({
   startOnLoad: false,
   theme: 'forest', // 可选：default, forest, dark, neutral
   securityLevel: 'loose',
+  // 禁止 Mermaid 在报错时自动向 DOM 插入错误节点
+  suppressErrorRendering: true,
 });
 
 
@@ -91,7 +99,7 @@ const renderMermaid = async () => {
     );
     mermaidContainer.value.innerHTML = svg;
   } catch (e) {
-    console.warn("Mermaid 渲染中...");
+    console.warn(e);
   }
 };
 
