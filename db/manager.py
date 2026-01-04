@@ -54,7 +54,7 @@ class MeetingDB:
             stmt = select(Meeting).where(Meeting.user_id == user_id).order_by(Meeting.start_time.desc())
             results = session.execute(stmt).scalars().all()
             return [
-                {"meeting_id": m.meeting_id, "subject": m.subject, "start_time": m.start_time}
+                {"meeting_id": m.meeting_id, "subject": m.subject, "start_time": m.start_time.isoformat()}
                 for m in results
             ]
 
@@ -107,7 +107,7 @@ class MeetingDB:
             stmt = select(Todo).where(Todo.user_id == user_id).order_by(Todo.deadline.desc())
             results = session.execute(stmt).scalars().all()
             return [
-                {"todo_id": t.todo_id, "task": t.task, "deadline": t.deadline, "status": t.status}
+                {"todo_id": t.todo_id, "task": t.task, "deadline": t.deadline.isoformat(), "status": t.status}
                 for t in results
             ]
 

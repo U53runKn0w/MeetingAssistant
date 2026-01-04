@@ -306,7 +306,7 @@ watch(isFullScreen, (newVal) => {
   background-color: #f8f9fa;
   border-radius: 8px;
   border: 1px solid #dee2e6;
-  max-height: 400px;
+  height: 360px;
 }
 
 .message-block {
