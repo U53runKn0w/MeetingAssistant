@@ -57,8 +57,65 @@
 
       <div class="col-lg-7">
         <div class="card shadow-sm border-0 h-100">
-          <div class="card-header bg-white py-3">
+          <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
             <h5 class="card-title mb-0"><i class="bi bi-chat-dots me-2"></i>智能分析</h5>
+            <button
+                class="btn btn-sm btn-outline-secondary"
+                @click="isFullScreen = true"
+                title="全屏查看"
+            >
+              <i class="bi bi-arrows-fullscreen"></i>
+            </button>
+          </div>
+
+          <div v-if="isFullScreen" class="modal-backdrop fade show"></div>
+          <div class="modal fade show" v-if="isFullScreen" style="display: block;" tabindex="-1">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable" style="height: 90vh;">
+              <div class="modal-content h-100 shadow-lg">
+                <div class="modal-header">
+                  <h5 class="modal-title text-primary"><i class="bi bi-robot me-2"></i>详细分析结果</h5>
+                  <button type="button" class="btn-close" @click="isFullScreen = false"></button>
+                </div>
+                <div
+                    class="modal-body bg-light overflow-auto"
+                    ref="fullChatContainer"
+                    style="height: 70vh;"
+                >
+                  <div v-for="(msg, i) in messages" :key="'full-'+i"
+                       :class="['message-block mb-3', msg.type.toLowerCase().replace(' ', '-')]">
+
+                    <div v-if="msg.type === 'Thought'" class="p-3 bg-white rounded border-start border-4 border-info shadow-sm">
+                      <small class="text-info fw-bold"><i class="bi bi-cpu me-1"></i>思考中:</small>
+                      <p class="mb-0 text-secondary italic">{{ msg.text }}</p>
+                    </div>
+
+                    <div v-else-if="msg.type === 'Action' || msg.type === 'Action Input'" class="mt-2">
+                      <span class="badge bg-secondary me-2">{{ msg.type === 'Action' ? '调用工具' : '参数详情' }}</span>
+                      <code class="small text-dark">{{ msg.text }}</code>
+                    </div>
+
+                    <div v-else-if="msg.type === 'Observation'" class="alert alert-secondary py-2 mt-2">
+                      <div class="fw-bold small mb-1">
+                        <i class="bi bi-tools me-1"></i>工具返回结果:
+                      </div>
+                      <pre class="mb-0 small" style="white-space: pre-wrap;">{{ msg.text }}</pre>
+                    </div>
+
+                    <div v-else-if="msg.type === 'Final Answer'" class="card border-primary shadow-sm">
+                      <div class="card-header bg-primary text-white py-2">回答内容</div>
+                      <div class="card-body fs-5" v-html="msg.text"></div>
+                    </div>
+
+                    <div v-else class="p-2 text-muted small">
+                      <strong>{{ msg.type }}:</strong> {{ msg.text }}
+                    </div>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" @click="isFullScreen = false">关闭</button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="card-body d-flex flex-column" style="min-height: 500px;">
@@ -77,7 +134,7 @@
                 </div>
 
                 <div v-else-if="msg.type === 'Action' || msg.type === 'Action Input'" class="mt-2">
-                  <span class="badge bg-secondary me-2">{{ msg.type === 'Action' ? '调用工具' : '参数' }}</span>
+                  <span class="badge bg-secondary me-2">{{ msg.type === 'Action' ? '调用工具' : '参数详情' }}</span>
                   <code class="small text-dark">{{ msg.text }}</code>
                 </div>
 
@@ -161,11 +218,21 @@ const isUploading = ref(false);
 const toResultButtonShow = ref(false);
 const url = 'http://localhost:5000/api/chat';
 const conversation = useConversation();
+const isFullScreen = ref(false);
 
 onMounted(() => {
-  if (conversation.messages.length > 0) {
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') isFullScreen.value = false;
+  });
+
+  meetingText.value = dummyMeeting;
+  if (conversation.messages.length > 0 && conversation.question.length > 0) {
     messages.value = conversation.messages;
     toResultButtonShow.value = true;
+    userQuery.value = conversation.question;
+    if (conversation.meeting.length === 0) {
+      meetingText.value = dummyMeeting;
+    }
   }
 })
 
@@ -187,6 +254,7 @@ const handleFileUpload = async (event) => {
     // 模拟延时和返回结果
     await new Promise(resolve => setTimeout(resolve, 2000));
     meetingText.value = dummyMeeting;
+    conversation.meeting = meetingText.value;
   } catch (err) {
     error.value = "文件转录失败，请检查后端接口。";
   } finally {
@@ -211,6 +279,7 @@ const sendMessage = async () => {
   isLoading.value = true;
   error.value = null;
   const currentQuery = userQuery.value; // 先备份
+  conversation.question = currentQuery;
 
   let rawAgentBuffer = "";
   let agentStartIndex = -1;
@@ -292,14 +361,44 @@ const sendMessage = async () => {
   }
 };
 
-// 自动滚动聊天区域
+// // 自动滚动聊天区域
+// watch(messages, () => {
+//   nextTick(() => {
+//     if (chatContainer.value) {
+//       chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
+//     }
+//   });
+// }, {deep: true});
+
+// 1. 定义新的 ref
+const fullChatContainer = ref(null);
+
+
+// 2. 修改后的统一滚动监听
 watch(messages, () => {
   nextTick(() => {
+    // 滚动主界面的聊天框
     if (chatContainer.value) {
       chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
     }
+
+    // 滚动全屏弹窗的聊天框（如果弹窗当前是打开状态）
+    if (isFullScreen.value && fullChatContainer.value) {
+      fullChatContainer.value.scrollTop = fullChatContainer.value.scrollHeight;
+    }
   });
-}, {deep: true});
+}, { deep: true });
+
+// 3. 额外处理：当用户点击“全屏”按钮打开弹窗时，立即滚动到底部
+watch(isFullScreen, (newVal) => {
+  if (newVal) {
+    nextTick(() => {
+      if (fullChatContainer.value) {
+        fullChatContainer.value.scrollTop = fullChatContainer.value.scrollHeight;
+      }
+    });
+  }
+});
 
 const toResult = async () => {
   conversation.messages = messages.value;
@@ -327,5 +426,35 @@ pre {
   background: #f1f1f1;
   padding: 10px;
   border-radius: 4px;
+}
+
+.modal-backdrop {
+  z-index: 1050;
+}
+.modal {
+  z-index: 1055;
+  background: rgba(0, 0, 0, 0.2); /* 简单的遮罩层 */
+}
+
+/* 让全屏下的回答字体稍大，方便阅读 */
+.modal-body .fs-5 {
+  line-height: 1.6;
+}
+
+/* 优化代码块在全屏下的显示 */
+.modal-body pre {
+  background: #2d2d2d;
+  color: #ccc;
+  padding: 15px;
+}
+
+.chat-box,
+.modal-body {
+  scroll-behavior: smooth;
+}
+
+/* 确保 Modal Body 在内容超出时出现滚动条 */
+.modal-body {
+  overflow-y: auto;
 }
 </style>

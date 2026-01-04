@@ -4,10 +4,11 @@ import {defineStore} from 'pinia'
 export const useConversation = defineStore('conversation', {
     state: () => ({
         messages: [],
-        question: ''
+        question: '',
+        meeting: ''
     }),
     actions: {
-        extractObservation(){
+        extractObservation() {
             let actionObservation = {}
             let current;
             this.messages.forEach((item) => {
