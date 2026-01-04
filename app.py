@@ -157,10 +157,13 @@ def gen_mindmap():
 
     return Response(generate(), mimetype='text/event-stream')
 
+
 @app.route('/api/preference', methods=['POST'])
 @jwt_required()
-def gen_mindmap():
-    c = request.json.get('', '')
+def gen_preference():
+    c = request.json.get('query')
+    if c is None:
+        return Response("请输入文本", mimetype='text/event-stream'), 500
 
     def generate():
         chain = create_pref_agent()
@@ -169,7 +172,7 @@ def gen_mindmap():
 
         async def run_agent():
             async for event in chain.astream_events(
-                    {"conclusion": c},
+                    {"query": c},
                     version="v2",
             ):
                 kind = event["event"]
