@@ -44,3 +44,15 @@ export function parseReActContent(fullText) {
 
     return result;
 }
+
+
+export function createHeaders() {
+    const token = localStorage.getItem('token');
+    let headers = {
+        'Content-Type': 'application/json',
+    }
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+}

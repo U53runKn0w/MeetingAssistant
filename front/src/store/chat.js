@@ -1,11 +1,12 @@
-// stores/counter.js
 import {defineStore} from 'pinia'
+import {dummyMeeting} from "@/js/etc.js";
 
-export const useConversation = defineStore('conversation', {
+export const useChat = defineStore('chat', {
     state: () => ({
         messages: [],
         question: '',
-        meeting: ''
+        meeting: dummyMeeting,
+        buttonsShow: false
     }),
     actions: {
         extractObservation() {

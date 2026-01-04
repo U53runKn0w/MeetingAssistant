@@ -35,10 +35,9 @@
 <script setup>
 import {ref, onMounted} from 'vue';
 import {useRouter} from 'vue-router';
-import {useConversation} from "@/js/store.js";
+import {useChat} from "@/store/chat.js";
 
 const router = useRouter();
-
 const isLoading = ref(true);
 
 
@@ -53,7 +52,7 @@ const toolConfigs = {
   extract_meeting_basic_info: {
     name: "会议基本信息",
     icon: "bi-info-circle-fill",
-    class: "bg-primary" // 使用 Bootstrap 内置类或自定义 CSS
+    class: "bg-primary"
   },
   parse_meeting_agenda_conclusion: {
     name: "议程与结论",
@@ -78,10 +77,9 @@ onMounted(() => {
 
 const fetchMeetingDetails = async () => {
   isLoading.value = true;
-  const conversation = useConversation();
+  const conversation = useChat();
   const rawData = conversation.extractObservation();
 
-  // 移除不需要展示的项
   delete rawData["get_user_info"];
 
   // 对每一项进行解析

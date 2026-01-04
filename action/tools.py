@@ -162,8 +162,8 @@ def get_user_info(username: str):
     pref = db.get_user_preference_dict(user_id=user_id)
     meetings = db.get_user_meetings(user_id=user_id)
     todos = db.get_user_todos(user_id=user_id)
-    return json.dumps({
+    return {
         "preferences": pref,
         "meetings": meetings,
         "todos": todos,
-    })
+    }
