@@ -17,7 +17,12 @@ class AgendaConclusion(BaseModel):
 class TodoItem(BaseModel):
     owner: str = Field(description="负责人姓名")
     task: str = Field(description="待办事项具体内容")
-    deadline: str = Field(description="截止时间，若无则标注'待确认'")
+    # 方案 A：仍使用 str，但明确格式要求
+    deadline: str = Field(
+        description="截止时间，格式为 YYYY-MM-DD HH:MM。若无具体时间则写日期。若完全未提及则标注'待确认'")
+
+    # 方案 B（更严格）：使用 Optional[datetime]
+    # deadline: Optional[datetime] = Field(description="截止时间")
 
 
 class FollowUp(BaseModel):

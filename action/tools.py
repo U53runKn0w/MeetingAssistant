@@ -1,5 +1,6 @@
 import json
 from contextlib import suppress
+from datetime import datetime
 from typing import List
 from langchain_core.tools import tool
 from langchain_deepseek import ChatDeepSeek
@@ -73,12 +74,18 @@ def generate_meeting_todo(text: str) -> List[dict]:
         todos: List[TodoItem]
 
     structured_llm = shared_llm.with_structured_output(TodoList)
+    # 获取当前日期，方便 LLM 换算“明天”、“下周”
+    current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """你是一个严谨的项目经理。请识别文本中的行动项（Action Items）：
-         1. 负责人（owner）：必须是具体的人名；若指代不明（如“研发部”），请填入部门名称。
-         2. 任务（task）：描述具体要做的动作，以动词开头。
-         3. 截止日期（deadline）：提取具体日期；若未提及，统一填入“待确认”。
-         注意：只提取明确要求“去做”的事项，排除“建议考虑”等模糊表态。"""),
+        ("system", f"""你是一个严谨的项目经理。当前时间是：{current_date}。
+             请从文本中提取行动项，并遵守以下规则：
+             1. 负责人（owner）：具体人名或部门。
+             2. 任务（task）：以动词开头的具体动作描述。
+             3. 截止日期（deadline）：
+                - 必须转化为具体的时间格式 (YYYY-MM-DD HH:MM)。
+                - 如果文本说“明天”，请根据当前时间 {current_date} 计算出日期。
+                - 如果只提到日期没提到小时，默认设为 18:00。
+                - 若文本中完全未提及时间，统一填入“待确认”。"""),
         ("user", "{text}")
     ])
     chain = prompt | structured_llm
