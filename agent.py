@@ -6,7 +6,7 @@ import config
 import asyncio
 from action.tools import extract_meeting_basic_info, parse_meeting_agenda_conclusion, generate_meeting_todo, \
     mark_meeting_follow_up, generate_user_preferences, get_user_info
-from config import template, meeting, template_no_meeting, template_mindmap
+from config import template, meeting, template_perference, template_mindmap
 
 
 def create_agent(callbacks=None):
@@ -59,9 +59,13 @@ def create_pref_agent(callbacks=None):
         stop_sequences=["\nObservation:"],
     )
 
-    tools = [generate_user_preferences]
+    tools = [extract_meeting_basic_info,
+             parse_meeting_agenda_conclusion,
+             generate_meeting_todo,
+             mark_meeting_follow_up,
+             generate_user_preferences]
 
-    prompt = PromptTemplate.from_template(template_no_meeting)
+    prompt = PromptTemplate.from_template(template_perference)
 
     react_agent = create_react_agent(
         llm=llm,

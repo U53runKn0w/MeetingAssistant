@@ -1,14 +1,81 @@
 :root {
+    /* 核心色板 - 采用更科学的 HSL 方案便于调整 */
     --primary: #2563eb;
-    --primary-light: #3b82f6;
-    --primary-dark: #1d4ed8;
+    --primary-light: #60a5fa;
+    --primary-dark: #1e40af;
     --secondary: #64748b;
     --success: #10b981;
+    --danger: #ef4444; /* 新增：危险/错误色 */
+
+    /* 中性色系统 */
     --background: #f8fafc;
     --card-bg: #ffffff;
-    --text-primary: #1e293b;
-    --text-secondary: #64748b;
+    --border: #e2e8f0; /* 新增：统一边框色 */
+    --text-main: #0f172a; /* 更深，提高对比度 */
+    --text-muted: #64748b;
+    --text-light: #94a3b8;
+
+    /* 装饰性属性 */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     --shadow-hover: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    --transition: all 0.3s ease;
+    --radius: 0.75rem; /* 新增：统一圆角 */
+    --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); /* 更平滑的曲线 */
+}
+
+/* 适配深色模式 */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: #0f172a;
+        --card-bg: #1e293b;
+        --text-main: #f1f5f9;
+        --text-muted: #94a3b8;
+        --border: #334155;
+        --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    }
+}
+
+/* 现代 CSS 重置 */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%; /* 防止移动端字体自动调整 */
+}
+
+body {
+    background-color: #f0f4f8; /* 稍微加深底色，让彩色更跳脱 */
+
+    /* 增加透明度到 0.08 - 0.12，并调整了分布位置 */
+    background-image: radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.12) 0px, transparent 55%),
+    radial-gradient(at 100% 0%, rgba(62, 152, 152, 0.1) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(37, 99, 235, 0.08) 0px, transparent 60%),
+    radial-gradient(at 0% 100%, rgba(16, 185, 171, 0.1) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(37, 99, 235, 0.12) 0px, transparent 55%);
+
+    background-attachment: fixed;
+    color: var(--text-main);
+    min-height: 100vh;
+    font-family: system-ui, -apple-system, sans-serif;
+    line-height: 1.5;
+    position: relative;
+}
+
+/* 如果你想要更极致的视觉效果，可以添加一个伪元素层来增强纹理 */
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* 增加一种“噪点”或“微粒”感，让渐变不那么平坦 */
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3BaseFilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/feTurbulence%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.015; /* 极低透明度，增加电影质感 */
+    pointer-events: none;
+    z-index: -1;
 }

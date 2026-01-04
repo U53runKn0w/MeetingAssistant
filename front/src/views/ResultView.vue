@@ -1,8 +1,8 @@
 <template>
   <div class="container mt-5 mb-5 pb-5">
     <header class="text-center mb-5">
-      <h1 class="display-6 fw-bold text-dark">分析结果详情</h1>
-      <p class="text-muted">基于 AI 智能提取的会议核心要素</p>
+      <h1 class="display-5 fw-bold text-primary">分析结果详情</h1>
+      <p class="lead text-muted">基于 AI 智能提取的会议核心要素</p>
     </header>
 
     <div class="row row-cols-1 row-cols-md-2 g-4 mb-5">
@@ -145,11 +145,10 @@ const fetchMeetingDetails = async () => {
 const goBack = () => router.push('/');
 </script>
 
-<style scoped src="@/assets/results.css"></style>
 <style scoped>
 /* 容器边距优化 */
 .container {
-  max-width: 1000px;
+  max-width: 1200px;
 }
 
 /* 卡片进入动画 */

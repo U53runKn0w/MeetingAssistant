@@ -3,13 +3,26 @@
     <div class="card shadow-sm border-0 h-100">
       <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
         <h5 class="card-title mb-0"><i class="bi bi-chat-dots me-2"></i>智能分析</h5>
-        <button
-            class="btn btn-sm btn-outline-secondary"
-            @click="isFullScreen = true"
-            title="全屏查看"
-        >
-          <i class="bi bi-arrows-fullscreen"></i>
-        </button>
+
+        <div class="d-flex align-items-center">
+          <div class="form-check mb-0 me-3"> <label class="form-check-label" for="flexCheckDefault">
+            测试
+          </label>
+            <input
+                class="form-check-input"
+                type="checkbox"
+                id="flexCheckDefault"
+                v-model="isTest"
+            >
+          </div>
+          <button
+              class="btn btn-sm btn-outline-secondary"
+              @click="isFullScreen = true"
+              title="全屏查看"
+          >
+            <i class="bi bi-arrows-fullscreen"></i>
+          </button>
+        </div>
       </div>
 
       <div v-if="isFullScreen" class="modal-backdrop fade show"></div>
@@ -127,17 +140,7 @@
               {{ isLoading ? '分析中' : '发送' }}
             </button>
           </div>
-          <div class="form-check">
-            <input
-                class="form-check-input"
-                type="checkbox"
-                id="flexCheckDefault"
-                v-model="isTest"
-            >
-            <label class="form-check-label" for="flexCheckDefault">
-              测试
-            </label>
-          </div>
+
           <p class="text-muted small mt-2">提示：系统将结合左侧录入的会议内容回答您的问题。</p>
         </form>
       </div>
