@@ -189,7 +189,7 @@ const formatTime = (isoString) => {
 const fetchData = async () => {
   service.get(`/todos`).then(data => {
     if (data.code === 200) {
-      myData.value.todos = data.data;
+      myData.value.todos = data.data.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
     }
   }).catch(error => {
     messageStore.setNetworkError('failed');
@@ -199,8 +199,8 @@ const fetchData = async () => {
 
   service.get(`/meetings`).then(data => {
     if (data.code === 200) {
-      myData.value.meetings = data.data;
-      if (data.data.length > 0) myData.value.nextMeeting = data.data[0];
+      myData.value.meetings = data.data.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+      if (data.data.length > 0) myData.value.nextMeeting = myData.value.meetings[0];
     }
   }).catch(error => {
     messageStore.setNetworkError('failed');
