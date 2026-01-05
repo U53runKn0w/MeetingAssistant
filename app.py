@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 
@@ -138,6 +140,108 @@ def delete_history(session_id):
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# 1. 获取用户的所有待办事项
+@app.route('/api/todos', methods=['GET'])
+@jwt_required()
+def get_todos():
+    username = get_jwt_identity()
+    user_id = db.get_user_id(username)
+    try:
+        todos = db.get_user_todos(user_id)
+        return jsonify({"code": 200, "data": todos}), 200
+    except Exception as e:
+        return jsonify({"code": 500, "message": str(e)}), 500
+
+
+# 2. 为特定会议添加待办事项
+@app.route('/api/todos', methods=['POST'])
+@jwt_required()
+def add_todos():
+    data = request.json
+    username = get_jwt_identity()
+    user_id = db.get_user_id(username)
+    meeting_id = data.get('meeting_id')
+    todos_list = data.get('todos')  # 格式: [{"owner": "张三", "task": "写报告", "deadline": datetime}]
+
+    if not all([user_id, meeting_id, todos_list]):
+        return jsonify({"code": 400, "message": "缺少必要参数"}), 400
+
+    try:
+        # 注意：这里需要处理 deadline 字符串转 datetime 对象（如果数据库模型需要的话）
+        for t in todos_list:
+            if t.get('deadline') and isinstance(t['deadline'], str):
+                t['deadline'] = datetime.fromisoformat(t['deadline'])
+
+        db.add_todos(user_id, meeting_id, todos_list)
+        return jsonify({"code": 200, "message": "添加成功"}), 200
+    except Exception as e:
+        return jsonify({"code": 500, "message": str(e)}), 500
+
+
+# 3. 批量更新待办状态或内容
+@app.route('/api/todos/update', methods=['PUT'])
+@jwt_required()
+def update_todos():
+    data = request.json
+    todos_data = data.get('todos')  # 格式: [{"todo_id": 1, "status": "completed"}]
+
+    if not todos_data:
+        return jsonify({"code": 400, "message": "无效的数据"}), 400
+
+    try:
+        db.update_todos(todos_data)
+        return jsonify({"code": 200, "message": "更新成功"}), 200
+    except Exception as e:
+        return jsonify({"code": 500, "message": str(e)}), 500
+
+
+@app.route('/api/meetings', methods=['GET'])
+@jwt_required()
+def get_meetings():
+    username = get_jwt_identity()
+    user_id = db.get_user_id(username)
+    try:
+        meetings = db.get_user_meetings(user_id)
+        return jsonify({"code": 200, "data": meetings}), 200
+    except Exception as e:
+        return jsonify({"code": 500, "message": str(e)}), 500
+
+
+# 获取用户偏好
+@app.route('/api/preferences', methods=['GET'])
+@jwt_required()
+def get_preferences():
+    username = get_jwt_identity()
+    user_id = db.get_user_id(username)
+    try:
+        prefs = db.get_user_preference_dict(user_id)
+        # 将字典转换为列表格式方便前端循环
+        prefs_list = [{"category": k, "value": v} for k, v in prefs.items()]
+        return jsonify({"code": 200, "data": prefs_list}), 200
+    except Exception as e:
+        return jsonify({"code": 500, "message": str(e)}), 500
+
+
+# 更新偏好 (可选)
+@app.route('/api/preferences', methods=['POST'])
+@jwt_required()
+def update_preference():
+    username = get_jwt_identity()
+    user_id = db.get_user_id(username)
+    data = request.json
+    category = data.get('category')
+    value = data.get('value')
+
+    if not category or not value:
+        return jsonify({"code": 400, "message": "缺少分类或值"}), 400
+
+    try:
+        db.add_user_preference(user_id, category, value)
+        return jsonify({"code": 200, "message": "偏好已更新"}), 200
+    except Exception as e:
+        return jsonify({"code": 500, "message": str(e)}), 500
 
 
 if __name__ == "__main__":

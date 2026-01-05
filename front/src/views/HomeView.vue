@@ -9,7 +9,7 @@
           <p class="lead text-muted">通过智能分析和组织，轻松简化您的会议记录</p>
         </header>
 
-        <Mine></Mine>
+        <MyInfo></MyInfo>
 
         <div class="row g-4">
           <MeetingInput></MeetingInput>
@@ -22,7 +22,7 @@
 </template>
 
 <script setup>
-import Mine from "@/components/Mine.vue";
+import MyInfo from "@/components/MyInfo.vue";
 import MeetingInput from "@/components/MeetingInput.vue";
 import ChatBox from "@/components/ChatBox.vue";
 import ChatTools from "@/components/ChatTools.vue";
