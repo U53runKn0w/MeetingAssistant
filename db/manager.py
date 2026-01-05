@@ -1,7 +1,8 @@
+import os
 import uuid
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, inspect
 from sqlalchemy.orm import sessionmaker
 from typing import List, Dict, Optional
 from datetime import datetime, timezone
@@ -14,7 +15,37 @@ class MeetingDB:
     def __init__(self, db_url: str = "sqlite:///db/db.sqlite"):
         self.engine = create_engine(db_url, connect_args={"check_same_thread": False})
         self.SessionLocal = sessionmaker(bind=self.engine)
-        Base.metadata.create_all(self.engine)
+
+        sql_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "init.sql")
+        insert_sql_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "insert.sql")
+        inspector = inspect(self.engine)
+
+        if not inspector.has_table("users"):
+            if os.path.exists(sql_path):
+                print(f"检测到数据库未初始化，正在执行 {sql_path} ...")
+                try:
+                    conn = self.engine.raw_connection()
+                    cursor = conn.cursor()
+
+                    # 1. 执行建表脚本 (init.sql)
+                    with open(sql_path, 'r', encoding='utf-8') as f:
+                        script = f.read()
+                        cursor.executescript(script)
+
+                    # 2. 执行数据插入脚本 (insert.sql) - 建议加个判断是否存在
+                    print(f"正在执行数据插入 {insert_sql_path} ...")
+                    with open(insert_sql_path, 'r', encoding='utf-8') as f:
+                        script = f.read()
+                        cursor.executescript(script)
+
+                    # 提交事务
+                    conn.commit()
+                    print("数据库初始化成功！")
+
+                except Exception as e:
+                    print(f"数据库初始化失败: {e}")
+            else:
+                print("未找到 init.sql，将仅创建空表。")
 
     # --- 用户操作 ---
     def add_user(self, username: str, password: str) -> int:
