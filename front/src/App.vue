@@ -7,7 +7,9 @@
   <!--    </div>-->
   <!--  </nav>-->
 
-  <div class="toast-container position-fixed top-0 end-0 p-3">
+  <UrgentTodo />
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" style="margin-top: 150px;">
     <div
         v-for="msg in messageStore.messages"
         :key="msg.id"
@@ -37,6 +39,7 @@
 import {useMessageStore} from "@/store/error.js";
 import {onUnmounted} from "vue";
 import router from "@/router/index.js";
+import UrgentTodo from "@/components/UrgentTodoReminder.vue";
 
 const messageStore = useMessageStore();
 

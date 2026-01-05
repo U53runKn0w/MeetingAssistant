@@ -198,6 +198,18 @@ def update_todos():
         return jsonify({"code": 500, "message": str(e)}), 500
 
 
+# 4. 更新单个待办事项
+@app.route('/api/todos/<int:todo_id>', methods=['PUT'])
+@jwt_required()
+def update_todo(todo_id):
+    data = request.json
+    try:
+        db.update_todos([{"todo_id": todo_id} | data])
+        return jsonify({"code": 200, "message": "更新成功"}), 200
+    except Exception as e:
+        return jsonify({"code": 500, "message": str(e)}), 500
+
+
 @app.route('/api/meetings', methods=['GET'])
 @jwt_required()
 def get_meetings():
