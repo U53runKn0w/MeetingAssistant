@@ -4,7 +4,6 @@ PRAGMA foreign_keys = ON;
 -- ---------------------------------------------------------
 -- 1. 用户表
 -- ---------------------------------------------------------
-DROP TABLE IF EXISTS users;
 CREATE TABLE IF NOT EXISTS users
 (
     user_id    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -17,7 +16,6 @@ CREATE TABLE IF NOT EXISTS users
 -- ---------------------------------------------------------
 -- 2. 会议表
 -- ---------------------------------------------------------
-DROP TABLE IF EXISTS meetings;
 CREATE TABLE IF NOT EXISTS meetings
 (
     meeting_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,7 +31,6 @@ CREATE TABLE IF NOT EXISTS meetings
 -- ---------------------------------------------------------
 -- 3. 参会人表
 -- ---------------------------------------------------------
-DROP TABLE IF EXISTS attendees;
 CREATE TABLE IF NOT EXISTS attendees
 (
     attendee_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,7 +42,6 @@ CREATE TABLE IF NOT EXISTS attendees
 -- ---------------------------------------------------------
 -- 4. 议题结论表
 -- ---------------------------------------------------------
-DROP TABLE IF EXISTS agenda_conclusions;
 CREATE TABLE IF NOT EXISTS agenda_conclusions
 (
     agenda_id  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,7 +54,6 @@ CREATE TABLE IF NOT EXISTS agenda_conclusions
 -- ---------------------------------------------------------
 -- 5. 待办事项表
 -- ---------------------------------------------------------
-DROP TABLE IF EXISTS todos;
 CREATE TABLE IF NOT EXISTS todos
 (
     user_id    INTEGER NOT NULL,
@@ -74,7 +69,6 @@ CREATE TABLE IF NOT EXISTS todos
 -- ---------------------------------------------------------
 -- 6. 待跟进事项表
 -- ---------------------------------------------------------
-DROP TABLE IF EXISTS follow_ups;
 CREATE TABLE IF NOT EXISTS follow_ups
 (
     follow_up_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -89,7 +83,6 @@ CREATE TABLE IF NOT EXISTS follow_ups
 -- 7. 对话记录表
 -- ---------------------------------------------------------
 -- 1. 对话会话表：存储一次完整对话的背景信息
-DROP TABLE IF EXISTS chat_sessions;
 CREATE TABLE chat_sessions
 (
     session_id TEXT PRIMARY KEY, -- 唯一会话ID (建议使用 UUID 或 时间戳)
@@ -100,7 +93,6 @@ CREATE TABLE chat_sessions
 );
 
 -- 2. 对话步骤明细表：存储 ReAct 的每一个环节
-DROP TABLE IF EXISTS dialog_steps;
 CREATE TABLE dialog_steps
 (
     step_id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -118,7 +110,6 @@ CREATE INDEX idx_session_order ON dialog_steps (session_id, sequence_order);
 -- ---------------------------------------------------------
 -- 8. 偏好设置表
 -- ---------------------------------------------------------
-DROP TABLE IF EXISTS preference;
 CREATE TABLE IF NOT EXISTS preference
 (
     preference_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,3 +119,13 @@ CREATE TABLE IF NOT EXISTS preference
     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
     UNIQUE (user_id, category)
 );
+
+-- DROP TABLE IF EXISTS users;
+-- DROP TABLE IF EXISTS meetings;
+-- DROP TABLE IF EXISTS attendees;
+-- DROP TABLE IF EXISTS agenda_conclusions;
+-- DROP TABLE IF EXISTS todos;
+-- DROP TABLE IF EXISTS follow_ups;
+-- DROP TABLE IF EXISTS chat_sessions;
+-- DROP TABLE IF EXISTS dialog_steps;
+-- DROP TABLE IF EXISTS preference;
