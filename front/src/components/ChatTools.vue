@@ -58,6 +58,7 @@ import {storeToRefs} from "pinia";
 import {useChat} from "@/store/chat.js";
 import {fetchEventSource} from "@microsoft/fetch-event-source";
 import {createHeaders} from "@/js/util.js";
+import {useErrorStore} from "@/store/error.js";
 
 const mindMapUrl = 'http://localhost:5000/api/mindmap';
 const showMindMapModal = ref(false);
@@ -66,7 +67,7 @@ const mindMapData = ref("");
 const mermaidContainer = ref(null);
 const chat = useChat();
 const {buttonsShow} = storeToRefs(chat);
-const {error} = storeToRefs(chat)
+const errorStore = useErrorStore();
 
 onMounted(() => {
   if (chat.messages.length > 0 && chat.question.length > 0) {
@@ -122,7 +123,7 @@ const generateMindMap = async () => {
 
       onopen: async (response) => {
         if (!response.ok) {
-          error.value = `请求错误: ${response.statusText}`;
+          errorStore.setError(`请求错误: ${response.statusText}`);
 
           if (response.status === 401) {
             await router.push('/login');
@@ -153,7 +154,7 @@ const generateMindMap = async () => {
 
       onerror: (err) => {
         console.error("SSE 异常:", err);
-        error.value = '连接中断，请检查后端服务。';
+        errorStore.setError('连接中断，请检查后端服务。');
         isMindMapLoading.value = false;
         ctrl.abort();
         clearInterval(timer);
