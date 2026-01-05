@@ -210,7 +210,7 @@ async def run_agent_async_generator(executor, data, session_id=None):
             # --- 存储逻辑 ---
             # 在这里将 final_chat_history 存入数据库
             db.save_chat_steps(session_id, final_chat_history)
-            print("完整消息记录:", json.dumps(final_chat_history, ensure_ascii=False, indent=2))
+            # print("完整消息记录:", json.dumps(final_chat_history, ensure_ascii=False, indent=2))
 
             yield f"data: {json.dumps({'type': 'done', 'content': ''})}\n\n"
 

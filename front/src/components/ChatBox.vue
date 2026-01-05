@@ -205,7 +205,7 @@ const sendMessage = async () => {
       method: 'POST',
       headers: createHeaders(),
       body: JSON.stringify({
-        meeting: meeting.text,
+        meeting: chat.text,
         query: currentQuery
       }),
       signal: ctrl.signal,
