@@ -29,9 +29,4 @@ import ChatTools from "@/components/ChatTools.vue";
 import Sidebar from "@/components/Sidebar.vue";
 </script>
 
-<style scoped>
-body {
-  margin: 0;
-  //background-color: #ffffff;
-}
-</style>
+<style scoped></style>

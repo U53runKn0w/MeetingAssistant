@@ -5,7 +5,7 @@
         <h5 class="card-title mb-0"><i class="bi bi-chat-dots me-2"></i>智能分析</h5>
 
         <div class="d-flex align-items-center">
-          <div class="form-check mb-0 me-3"> <label class="form-check-label" for="flexCheckDefault">
+          <div class="form-check mb-0 me-3"><label class="form-check-label" for="flexCheckDefault">
             测试
           </label>
             <input
@@ -113,7 +113,7 @@
             </div>
           </div>
 
-          <div v-if="isLoading && messages.length > 0">
+          <div v-if="isGenerating && messages.length > 0">
             <template v-if="messages[messages.length - 1].type === 'Action Input'">
               <div class="alert alert-secondary py-2 mt-2 border-0 shadow-sm opacity-75">
                 <div class="d-flex align-items-center">
@@ -132,12 +132,12 @@
                 type="text"
                 class="form-control form-control-lg"
                 placeholder="输入关于会议的问题（例如：总结待办事项）..."
-                :disabled="isLoading"
+                :disabled="isGenerating"
             />
-            <button type="submit" class="btn btn-primary px-4" :disabled="isLoading || !userQuery">
-              <span v-if="isLoading" class="spinner-border spinner-border-sm me-2"></span>
+            <button type="submit" class="btn btn-primary px-4" :disabled="isGenerating || !userQuery">
+              <span v-if="isGenerating" class="spinner-border spinner-border-sm me-2"></span>
               <i v-else class="bi bi-send-fill me-2"></i>
-              {{ isLoading ? '分析中' : '发送' }}
+              {{ isGenerating ? '分析中' : '发送' }}
             </button>
           </div>
 
@@ -156,17 +156,21 @@ import {useChat} from "@/store/chat.js";
 import {storeToRefs} from "pinia";
 import {nextTick, onMounted, ref, watch} from "vue";
 import {useMeeting} from "@/store/meeting.js";
+import {useSession} from "@/store/session.js";
 
 
 const productUrl = 'http://localhost:5000/api/chat';
 const testUrl = 'http://localhost:5000/api/chat/test';
 let url;
+
 const chat = useChat();
 const meeting = useMeeting();
+const session = useSession();
 const {question: userQuery} = storeToRefs(chat)
 const {error: error} = storeToRefs(meeting)
 const {messages: messages} = storeToRefs(chat)
-const isLoading = ref(false);
+
+const isGenerating = ref(false);
 const chatContainer = ref(null);
 const isFullScreen = ref(false);
 const fullChatContainer = ref(null);
@@ -180,7 +184,7 @@ onMounted(() => {
 })
 
 const sendMessage = async () => {
-  if (!userQuery.value || isLoading.value) return;
+  if (!userQuery.value || isGenerating.value) return;
 
   if (isTest.value) {
     url = testUrl;
@@ -189,7 +193,7 @@ const sendMessage = async () => {
   }
   chat.buttonsShow = false;
   messages.value = [];
-  isLoading.value = true;
+  isGenerating.value = true;
   error.value = null;
   const currentQuery = userQuery.value; // 先备份
   chat.question = currentQuery;
@@ -225,6 +229,10 @@ const sendMessage = async () => {
         const data = JSON.parse(event.data);
 
         switch (data.type) {
+          case 'meta':
+            session.sessionId = data.content;
+            break;
+
           case 'observation':
             let content = data.content
             content = content.substring(content.indexOf(':') + 1).trim();
@@ -247,7 +255,7 @@ const sendMessage = async () => {
             break;
 
           case 'done':
-            isLoading.value = false;
+            isGenerating.value = false;
             ctrl.abort();
             chat.buttonsShow = true;
             break;
@@ -255,14 +263,14 @@ const sendMessage = async () => {
       },
 
       onclose: () => {
-        isLoading.value = false;
+        isGenerating.value = false;
         console.log("连接正常关闭");
       },
 
       onerror: (err) => {
         console.error("SSE 异常:", err);
         error.value = '连接中断，请检查后端服务。';
-        isLoading.value = false;
+        isGenerating.value = false;
         ctrl.abort();
         throw err;
       }

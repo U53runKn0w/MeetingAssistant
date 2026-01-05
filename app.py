@@ -1,9 +1,11 @@
+import uuid
+
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, JWTManager
 
-from agent import create_agent, meeting, create_mindmap_chain, create_pref_agent, run_agent_async_generator, generate_answer
+from agent import create_agent, meeting, create_mindmap_chain, create_pref_agent, generate_answer
 from db.manager import db
 
 app = Flask(__name__)
@@ -31,17 +33,25 @@ def login():
 @app.route('/api/chat', methods=['POST'])
 @jwt_required()
 def chat():
+    username = get_jwt_identity()
     m = request.json.get('meeting', meeting)
+    query = request.json.get('query', '请总结会议内容')
+    session_id = request.json.get('session_id')
     if m.strip() == '':
         m = meeting
-    query = request.json.get('query', '请总结会议内容')
     if query.strip() == '':
         query = '请总结会议内容'
-    username = get_jwt_identity()
+    if not session_id:
+        user_id = db.get_user_id(username)
+        session_id = db.create_chat_session(user_id, query)
+    else:
+        # 拉取聊天记录
+        pass
 
     agent_executor = create_agent()
-    return Response(generate_answer(agent_executor, {"input": query, "meeting": m, "username": username}),
+    return Response(generate_answer(agent_executor, {"input": query, "meeting": m, "username": username}, session_id),
                     mimetype='text/event-stream')
+
 
 @app.route('/api/chat/test', methods=['POST'])
 @jwt_required()
@@ -70,6 +80,32 @@ def gen_preference():
     current_user = get_jwt_identity()
     chain = create_pref_agent()
     return Response(generate_answer(chain, {"query": c, "username": current_user}), mimetype='text/event-stream')
+
+
+@app.route('/api/history', methods=['GET'])
+@jwt_required()
+def get_history():
+    """侧边栏接口：获取历史列表"""
+    username = get_jwt_identity()
+    user_id = db.get_user_id(username)
+    try:
+        data = db.get_history_list(user_id)
+        return jsonify(data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/history/<session_id>', methods=['GET'])
+@jwt_required()
+def get_chat_detail(session_id):
+    """详情接口：点击侧边栏项后加载对话内容"""
+    try:
+        steps = db.get_chat_detail(session_id)
+        if not steps:
+            return jsonify({"error": "未找到记录"}), 404
+        return jsonify(steps), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

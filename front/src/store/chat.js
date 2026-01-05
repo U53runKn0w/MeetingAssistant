@@ -1,11 +1,10 @@
 import {defineStore} from 'pinia'
-import {dummyMeeting} from "@/js/etc.js";
+
 
 export const useChat = defineStore('chat', {
     state: () => ({
         messages: [],
         question: '',
-        meeting: dummyMeeting,
         buttonsShow: false
     }),
     actions: {

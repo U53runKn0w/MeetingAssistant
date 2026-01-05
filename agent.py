@@ -9,6 +9,7 @@ import asyncio
 from action.tools import extract_meeting_basic_info, parse_meeting_agenda_conclusion, generate_meeting_todo, \
     mark_meeting_follow_up, generate_user_preferences, get_user_info
 from config import template, meeting, template_perference, template_mindmap
+from db.manager import db
 
 
 def create_agent(callbacks=None):
@@ -128,16 +129,57 @@ async def run_query_async(agent_executor, query: str, has_meeting: bool = True):
                 print(content, end="", flush=True)
 
 
-async def run_agent_async_generator(executor, data):
-    async for event in executor.astream_events(
-            data,
-            version="v2",
-    ):
+def parse_react_content(full_text):
+    patterns = [
+        {'label': 'Thought', 'marker': 'Thought:'},
+        {'label': 'Action', 'marker': 'Action:'},
+        {'label': 'Action Input', 'marker': 'Action Input:'},
+        {'label': 'Final Answer', 'marker': 'Final Answer:'}
+    ]
+
+    # 寻找标识符位置
+    positions = []
+    for p in patterns:
+        index = full_text.find(p['marker'])
+        if index != -1:
+            positions.append({'index': index, 'label': p['label'], 'marker': p['marker']})
+
+    # 按索引排序
+    positions.sort(key=lambda x: x['index'])
+
+    if not positions:
+        return [{'type': 'Thought', 'text': full_text}]
+
+    result = []
+    for i in range(len(positions)):
+        start = positions[i]['index'] + len(positions[i]['marker'])
+        end = positions[i + 1]['index'] if i + 1 < len(positions) else len(full_text)
+
+        content = full_text[start:end].strip()
+        result.append({
+            'type': positions[i]['label'],
+            'text': content
+        })
+
+    return result
+
+
+async def run_agent_async_generator(executor, data, session_id=None):
+    # 用于存储最终解析后的结构化消息数组
+    final_chat_history = []
+    # 模拟前端的 rawAgentBuffer
+    raw_agent_buffer = ""
+
+    if session_id:
+        yield f"data: {json.dumps({'type': 'meta', 'content': session_id})}\n\n"
+
+    async for event in executor.astream_events(data, version="v2"):
         kind = event["event"]
 
         if kind == "on_chat_model_stream":
             content = event["data"]["chunk"].content
             if content:
+                raw_agent_buffer += content  # 累积 buffer
                 yield f"data: {json.dumps({'type': 'stream', 'content': content})}\n\n"
 
         elif kind == "on_tool_start":
@@ -145,17 +187,38 @@ async def run_agent_async_generator(executor, data):
             yield f"data: {json.dumps({'type': 'status', 'content': f'正在调用工具: {tool_name}...'})}\n\n"
 
         elif kind == "on_tool_end":
+            # 1. 遇到 Observation 前，先解析并归档之前的 Agent Buffer
+            if raw_agent_buffer:
+                parsed_segments = parse_react_content(raw_agent_buffer)
+                final_chat_history.extend(parsed_segments)
+                raw_agent_buffer = ""  # 清空，同前端逻辑
+
+            # 2. 处理 Observation
             tool_output = event["data"].get("output")
+            # 模拟前端 content.substring(content.indexOf(':') + 1).trim()
+            obs_text = str(tool_output).strip()
+            final_chat_history.append({'type': 'Observation', 'text': obs_text})
+
             yield f"data: {json.dumps({'type': 'observation', 'content': f'Observation: {tool_output}'})}\n\n"
 
         elif kind == "on_chain_end" and event["name"] == "AgentExecutor":
+            # 最后结束前，处理残留在 buffer 中的 Final Answer
+            if raw_agent_buffer:
+                parsed_segments = parse_react_content(raw_agent_buffer)
+                final_chat_history.extend(parsed_segments)
+
+            # --- 存储逻辑 ---
+            # 在这里将 final_chat_history 存入数据库
+            db.save_chat_steps(session_id, final_chat_history)
+            print("完整消息记录:", json.dumps(final_chat_history, ensure_ascii=False, indent=2))
+
             yield f"data: {json.dumps({'type': 'done', 'content': ''})}\n\n"
 
 
-def generate_answer(chain, data):
+def generate_answer(chain, data, session_id=None):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    gen = run_agent_async_generator(chain, data)
+    gen = run_agent_async_generator(chain, data, session_id)
 
     try:
         while True:

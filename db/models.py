@@ -73,3 +73,30 @@ class Preference(Base):
     user: Mapped["User"] = relationship(back_populates="preferences")
 
     __table_args__ = (UniqueConstraint("user_id", "category", name="uq_user_category"),)
+
+
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+
+    # 使用 Mapped 风格定义
+    session_id: Mapped[str] = mapped_column(String(64), primary_key=True)  # 通常存储 UUID 字符串
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    title: Mapped[Optional[str]] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    # 关系映射：显式定义 back_populates 以获得更好的 IDE 支持
+    steps: Mapped[List["ChatStep"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+
+
+class ChatStep(Base):
+    __tablename__ = "chat_steps"
+
+    step_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(ForeignKey("chat_sessions.session_id", ondelete="CASCADE"), nullable=False)
+    sequence_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    type: Mapped[str] = mapped_column(String(50), nullable=False)  # Thought, Action, Observation, etc.
+    content: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    # 关系映射
+    session: Mapped["ChatSession"] = relationship(back_populates="steps")

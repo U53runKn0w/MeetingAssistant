@@ -121,8 +121,8 @@ const handleLogin = async () => {
   service.post('/login', {
     username: loginForm.username,
     password: loginForm.password,
-  }).then(response => {
-    localStorage.setItem('token', response.access_token);
+  }).then(data => {
+    localStorage.setItem('token', data.access_token);
     router.push('/');
   }).catch(error => {
     console.log(error);

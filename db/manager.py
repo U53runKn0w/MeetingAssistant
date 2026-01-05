@@ -1,9 +1,12 @@
+import uuid
+from zoneinfo import ZoneInfo
+
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from typing import List, Dict, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
-from db.models import Base, User, Meeting, Attendee, Todo, Preference
+from db.models import Base, User, Meeting, Attendee, Todo, Preference, ChatSession, ChatStep
 
 
 class MeetingDB:
@@ -30,6 +33,10 @@ class MeetingDB:
         with self.SessionLocal() as session:
             stmt = select(User).where(User.username == username, User.password == password)
             return session.execute(stmt).scalar_one_or_none() is not None
+
+    def get_user_id(self, username):
+        user = self.get_user(username)
+        return None if user is None else user["user_id"]
 
     # --- 会议操作 ---
     def add_meeting(self, user_id: int, subject: str, start_time: datetime,
@@ -132,6 +139,66 @@ class MeetingDB:
             stmt = select(Preference).where(Preference.user_id == user_id)
             prefs = session.execute(stmt).scalars().all()
             return {p.category: p.preference for p in prefs}
+
+    def get_history_list(self, user_id: int) -> List[Dict]:
+        """获取侧边栏简易列表"""
+        with self.SessionLocal() as session:
+            stmt = select(ChatSession).where(ChatSession.user_id == user_id).order_by(ChatSession.created_at.desc())
+            results = session.execute(stmt).scalars().all()
+            return [
+                {
+                    "session_id": s.session_id,
+                    "title": s.title or "新对话",
+                    "created_at": s.created_at.isoformat()
+                } for s in results
+            ]
+
+    def get_chat_detail(self, session_id: str) -> List[Dict]:
+        """获取某个对话的完整 ReAct 过程"""
+        with (self.SessionLocal() as session):
+            stmt = select(ChatStep).where(ChatStep.session_id == session_id).order_by(ChatStep.sequence_order.asc())
+            results = session.execute(stmt).scalars().all()
+            steps = [
+                {"type": step.type, "text": step.content}
+                for step in results
+            ]
+            steps.sort(key=lambda step: step.sequence_order)
+            return steps
+
+    def create_chat_session(self, user_id: int, title: str) -> str:
+        """创建一个新的会话并返回 ID"""
+        new_id = str(uuid.uuid4())
+        with self.SessionLocal() as session:
+            chat_session = ChatSession(session_id=new_id, user_id=user_id, title=title,
+                                       created_at=datetime.now(ZoneInfo("Asia/Shanghai")))
+            session.add(chat_session)
+            session.commit()
+            return new_id
+
+    def save_chat_steps(self, session_id: str, steps_data: List[Dict]):
+        """
+        批量保存 ReAct 步骤
+        :param session_id: 所属会话 ID
+        :param steps_data: 格式为 [{'type': '...', 'text': '...'}, ...] 的列表
+        """
+        with self.SessionLocal() as session:
+            for idx, item in enumerate(steps_data):
+                # 将前端/模型输出的 'text' 映射到数据库的 'content'
+                step = ChatStep(
+                    session_id=session_id,
+                    sequence_order=idx,
+                    type=item.get('type'),
+                    content=item.get('text'),
+                    created_at=datetime.now(ZoneInfo("Asia/Shanghai"))
+                )
+                session.add(step)
+
+            try:
+                session.commit()
+            except Exception as e:
+                session.rollback()
+                print(f"保存对话步骤失败: {e}")
+                raise e
 
 
 db = MeetingDB()

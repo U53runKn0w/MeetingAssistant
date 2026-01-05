@@ -3,7 +3,6 @@
  * 支持解析：Thought, Action, Action Input, Final Answer
  */
 export function parseReActContent(fullText) {
-    // 定义需要匹配的标识符
     const patterns = [
         {label: 'Thought', marker: 'Thought:'},
         {label: 'Action', marker: 'Action:'},
