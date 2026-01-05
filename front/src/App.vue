@@ -35,7 +35,20 @@
 
 <script setup>
 import {useMessageStore} from "@/store/error.js";
+import {onUnmounted} from "vue";
+import router from "@/router/index.js";
+
 const messageStore = useMessageStore();
+
+// 注册全局后置守卫：每次路由跳转完成后执行
+const unregister = router.afterEach(() => {
+  messageStore.clearAll();
+});
+
+onUnmounted(() => {
+  unregister();
+});
+
 </script>
 
 <style scoped>

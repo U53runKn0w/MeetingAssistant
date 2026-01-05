@@ -1,5 +1,6 @@
 import axios from 'axios';
 import router from "@/router/index.js";
+import {useMessageStore} from "@/store/error.js";
 
 const service = axios.create({
     baseURL: "http://localhost:5000/api",
@@ -35,6 +36,7 @@ service.interceptors.response.use(
             if (status === 401) {
                 localStorage.removeItem('token');
                 if (router.currentRoute.value.path !== '/login') {
+                    useMessageStore().setError("身份过期，请重新登录")
                     await router.push('/login');
                 }
                 return Promise.reject(new Error(data.msg || '身份过期，请重新登录'));

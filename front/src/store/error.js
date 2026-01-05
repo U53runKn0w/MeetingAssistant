@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia';
+import {defineStore} from 'pinia';
 
 export const useMessageStore = defineStore('message', {
     state: () => ({
@@ -8,7 +8,7 @@ export const useMessageStore = defineStore('message', {
         // 通用添加方法
         addMessage(text, type = 'danger') {
             const id = Date.now() + Math.random(); // 确保 ID 唯一
-            this.messages.push({ id, text, type });
+            this.messages.push({id, text, type});
 
             // 自动移除
             setTimeout(() => {
@@ -32,6 +32,10 @@ export const useMessageStore = defineStore('message', {
 
         removeMessage(id) {
             this.messages = this.messages.filter(m => m.id !== id);
+        },
+        // 新增：清空所有消息
+        clearAll() {
+            this.messages = [];
         }
     }
 });
