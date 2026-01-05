@@ -8,7 +8,6 @@ export const useChat = defineStore('chat', {
         question: '',
         buttonsShow: false,
         text: dummyMeeting,
-        error: null,
         sessionId: '',
     }),
     actions: {

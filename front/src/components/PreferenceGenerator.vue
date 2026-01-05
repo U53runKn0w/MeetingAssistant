@@ -75,6 +75,7 @@ import {ref, watch, nextTick} from 'vue';
 import {fetchEventSource} from "@microsoft/fetch-event-source";
 import {createHeaders, parseReActContent} from "@/js/util.js";
 import router from "@/router/index.js";
+import {useErrorStore} from "@/store/error.js";
 
 const apiURL = 'http://localhost:5000/api/preference'; // 您的SSE接口
 
@@ -82,6 +83,7 @@ const userQuery = ref('');
 const messages = ref([]);
 const isGenerating = ref(false);
 const scrollContainer = ref(null);
+const errorStore = useErrorStore();
 
 const clearAll = () => {
   messages.value = [];
@@ -111,7 +113,7 @@ const generatePreference = async () => {
 
       onopen: async (response) => {
         if (!response.ok) {
-          // error.value = `请求错误: ${response.statusText}`;
+          errorStore.setError(`请求错误: ${response.statusText}`);
           if (response.status === 401) {
             await router.push('/login');
           }
@@ -157,7 +159,7 @@ const generatePreference = async () => {
 
       onerror: (err) => {
         console.error("SSE 异常:", err);
-        // error.value = '连接中断，请检查后端服务。';
+        errorStore.setError('连接中断，请检查后端服务。');
         isGenerating.value = false;
         ctrl.abort();
         throw err;
