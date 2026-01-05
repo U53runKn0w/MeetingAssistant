@@ -142,7 +142,7 @@ def generate_user_preferences(param: str) -> List[dict]:
             - 若涉及“关注点”、“只看老板说话” -> 类别：内容权重
          2. 标准化：参考现有类别 {existing_prefs}，语义相近的必须强行统一，严禁创建冗余类别。
          3. 简洁化：偏好值（preference）应为具体的设定词（如“精简模式”、“专业商务”）。"""),
-        ("user", "{text}")
+        ("user", f"{text}")
     ])
     chain = prompt_analyze_preference | structured_llm
     user_id = db.get_user_id(username.strip())
@@ -165,7 +165,7 @@ def get_user_info(username: str) -> dict:
     """
     【适用场景】Agent 启动时的“第一步”操作。用于加载用户的个性化画像。
     【调用时机】在处理任何具体请求前，先调用此工具以了解用户的偏好（Preference）和历史背景。
-    【参数要求】username 必须是系统中存在的标准用户名。
+    【参数要求】username必须是系统中存在的标准用户名，直接给出值，不要用json。
     【输出价值】获取到的 preferences 应用于指导 Final Answer 的 HTML 风格和内容侧重点。
     """
 

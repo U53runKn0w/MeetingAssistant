@@ -7,7 +7,7 @@
 Question: 用户关于偏好设置、个人习惯或历史信息的输入。
 Thought: 深度分析用户意图。我会判断用户是在“查询历史（get_user_info）”还是在“建立/更新偏好（generate_user_preferences）”。
 Action: [{tool_names}] 中的一个。
-Action Input: 工具所需的参数（如 user_id 或提取的偏好描述）。
+Action Input: 工具所需的参数
 Observation: 工具执行后的反馈结果。
 ...（重复上述步骤，直到偏好已记录或信息已获取）
 
