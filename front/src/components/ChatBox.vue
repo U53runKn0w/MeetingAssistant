@@ -77,7 +77,11 @@
       </div>
 
       <div class="card-body d-flex flex-column" style="min-height: 500px;">
-        <div class="chat-box flex-grow-1 overflow-auto mb-3 p-2" ref="chatContainer">
+        <div
+            class="chat-box flex-grow-1 overflow-auto mb-3 p-2"
+            ref="chatContainer"
+            @scroll.passive="handleScroll"
+        >
           <div v-if="messages.length === 0" class="text-center text-muted mt-5">
             <i class="bi bi-robot display-4"></i>
             <p class="mt-2">准备就绪，请在下方输入关于会议的问题。</p>
@@ -183,11 +187,19 @@ const fullChatContainer = ref(null);
 const isTest = ref(false);
 const abortController = ref(null);
 
+// 自动跟随滚动状态
+const autoScroll = ref(true);
+
 onMounted(() => {
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') isFullScreen.value = false;
     if (e.key === 'Delete') isFullScreen.value = true;
   });
+
+  // 监听聊天框滚动事件
+  if (chatContainer.value) {
+    chatContainer.value.addEventListener('scroll', handleScroll);
+  }
 })
 
 const sendMessage = async (isResume = false) => {
@@ -202,6 +214,8 @@ const sendMessage = async (isResume = false) => {
   if (!isResume) {
     messages.value = [];
   }
+
+  chatStore.messages = [];
   isGenerating.value = true;
   const currentQuery = userQuery.value; // 先备份
   chatStore.question = currentQuery;
@@ -325,15 +339,36 @@ const stopGeneration = () => {
     abortController.value = null;
   }
   isGenerating.value = false;
-  chatStore.messages = [];
   chatStore.buttonsShow = true;
+};
+
+// 处理滚动事件
+const handleScroll = () => {
+  if (!chatContainer.value) return;
+
+  const { scrollTop, scrollHeight, clientHeight } = chatContainer.value;
+  const distanceToBottom = scrollHeight - (scrollTop + clientHeight);
+
+  // 如果距离底部小于 100px，开启自动跟随
+  if (distanceToBottom < 100) {
+    autoScroll.value = true;
+  } else {
+    autoScroll.value = false;
+  }
+};
+
+// 滚动到底部的辅助函数
+const scrollToBottom = () => {
+  if (chatContainer.value) {
+    chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
+  }
 };
 
 
 watch(messages, () => {
   nextTick(() => {
-    // 滚动主界面的聊天框
-    if (chatContainer.value) {
+    // 只有在开启自动跟随时才滚动主界面的聊天框
+    if (autoScroll.value && chatContainer.value) {
       chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
     }
 
@@ -352,6 +387,13 @@ watch(isFullScreen, (newVal) => {
         fullChatContainer.value.scrollTop = fullChatContainer.value.scrollHeight;
       }
     });
+  }
+});
+
+// 监听 chatContainer 挂载，添加滚动监听
+watch(chatContainer, (newVal) => {
+  if (newVal) {
+    newVal.addEventListener('scroll', handleScroll);
   }
 });
 </script>
