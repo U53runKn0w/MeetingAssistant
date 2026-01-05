@@ -55,19 +55,19 @@ import {onMounted, ref} from "vue";
 import mermaid from 'mermaid';
 import router from "@/router/index.js";
 import {storeToRefs} from "pinia";
-import {useChat} from "@/store/chat.js";
+import {useChatStore} from "@/store/chat.js";
 import {fetchEventSource} from "@microsoft/fetch-event-source";
 import {createHeaders} from "@/js/util.js";
-import {useErrorStore} from "@/store/error.js";
+import {useMessageStore} from "@/store/error.js";
 
 const mindMapUrl = 'http://localhost:5000/api/mindmap';
 const showMindMapModal = ref(false);
 const isMindMapLoading = ref(false);
 const mindMapData = ref("");
 const mermaidContainer = ref(null);
-const chat = useChat();
+const chat = useChatStore();
 const {buttonsShow} = storeToRefs(chat);
-const errorStore = useErrorStore();
+const messageStore = useMessageStore();
 
 onMounted(() => {
   if (chat.messages.length > 0 && chat.question.length > 0) {
@@ -123,7 +123,7 @@ const generateMindMap = async () => {
 
       onopen: async (response) => {
         if (!response.ok) {
-          errorStore.setError(`请求错误: ${response.statusText}`);
+          messageStore.setError(`请求错误: ${response.statusText}`);
 
           if (response.status === 401) {
             await router.push('/login');
@@ -153,8 +153,8 @@ const generateMindMap = async () => {
       },
 
       onerror: (err) => {
-        console.error("SSE 异常:", err);
-        errorStore.setError('连接中断，请检查后端服务。');
+        console.error("SSE异常:", err);
+        messageStore.setError('连接中断，请检查后端服务。');
         isMindMapLoading.value = false;
         ctrl.abort();
         clearInterval(timer);

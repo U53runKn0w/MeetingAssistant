@@ -1,6 +1,6 @@
 <template>
   <div class="d-flex min-vh-100">
-    <History />
+    <History/>
 
     <div class="flex-grow-1 overflow-auto">
       <div class="container mt-5 mb-5">

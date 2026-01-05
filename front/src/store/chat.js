@@ -2,7 +2,7 @@ import {defineStore} from 'pinia'
 import {dummyMeeting} from "@/js/etc.js";
 
 
-export const useChat = defineStore('chat', {
+export const useChatStore = defineStore('chat', {
     state: () => ({
         messages: [],
         question: '',

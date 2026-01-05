@@ -78,7 +78,7 @@
 <script setup>
 import {ref, onMounted} from 'vue';
 import {useRouter} from 'vue-router';
-import {useChat} from "@/store/chat.js";
+import {useChatStore} from "@/store/chat.js";
 
 const router = useRouter();
 const isLoading = ref(true);
@@ -116,7 +116,7 @@ onMounted(() => {
 
 const fetchMeetingDetails = async () => {
   isLoading.value = true;
-  const conversation = useChat();
+  const conversation = useChatStore();
   const rawData = conversation.extractObservation();
 
   const parsedResults = {};

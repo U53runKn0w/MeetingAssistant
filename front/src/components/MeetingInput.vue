@@ -49,13 +49,13 @@
 import {dummyMeeting} from "@/js/etc.js";
 import {ref} from "vue";
 import {storeToRefs} from "pinia";
-import {useChat} from "@/store/chat.js";
-import {useErrorStore} from "@/store/error.js";
+import {useChatStore} from "@/store/chat.js";
+import {useMessageStore} from "@/store/error.js";
 
-const chat = useChat();
-const {text: meetingText} = storeToRefs(chat);
+const chatStore = useChatStore();
+const {text: meetingText} = storeToRefs(chatStore);
 const isUploading = ref(false);
-const errorStore = useErrorStore();
+const messageStore = useMessageStore();
 
 
 const handleFileUpload = async (event) => {
@@ -63,7 +63,7 @@ const handleFileUpload = async (event) => {
   if (!file) return;
 
   isUploading.value = true;
-  errorStore.clearError();
+  messageStore.removeError();
 
   const formData = new FormData();
   formData.append('file', file);
@@ -75,7 +75,7 @@ const handleFileUpload = async (event) => {
     await new Promise(resolve => setTimeout(resolve, 2000));
     meetingText.value = dummyMeeting;
   } catch (err) {
-    errorStore.setError("文件转录失败，请检查后端接口。");
+    messageStore.setError("文件转录失败，请检查后端接口。");
   } finally {
     isUploading.value = false;
     event.target.value = ''; // 重置 file input

@@ -137,6 +137,7 @@
 import {ref, onMounted, computed} from "vue";
 import service from "@/js/request.js";
 import PreferenceGenerator from "@/components/PreferenceGenerator.vue";
+import {useMessageStore} from "@/store/error.js";
 
 const myData = ref({
   todos: [],
@@ -145,6 +146,7 @@ const myData = ref({
   preferences: []
 });
 
+const messageStore = useMessageStore();
 const isModalOpen = ref(false);
 const activeType = ref(''); // 'todo', 'meeting', 'preference'
 
@@ -190,24 +192,28 @@ const fetchData = async () => {
       myData.value.todos = data.data;
     }
   }).catch(error => {
-    console.error("数据加载失败:", error);
+    messageStore.setError("待办加载失败");
+    console.error("待办加载失败", error);
   });
 
 
   service.get(`/meetings`).then(data => {
     if (data.code === 200) {
-      myData.value.meetings = data.data; // 保存全量用于弹窗
+      myData.value.meetings = data.data;
       if (data.data.length > 0) myData.value.nextMeeting = data.data[0];
     }
+  }).catch(error => {
+    messageStore.setError("会议加载失败");
+    console.error("会议加载失败", error);
   });
 
-  // 新增：获取偏好
   service.get(`/preferences`).then(data => {
     if (data.code === 200) {
       myData.value.preferences = data.data;
     }
   }).catch(err => {
-    console.error("偏好获取失败", err);
+    messageStore.setError("偏好加载失败");
+    console.error("偏好加载失败", err);
   });
 };
 

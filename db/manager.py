@@ -14,7 +14,7 @@ class MeetingDB:
     def __init__(self, db_url: str = "sqlite:///db/db.sqlite"):
         self.engine = create_engine(db_url, connect_args={"check_same_thread": False})
         self.SessionLocal = sessionmaker(bind=self.engine)
-        Base.metadata.create_all(self.engine)
+        # Base.metadata.create_all(self.engine)
 
     # --- 用户操作 ---
     def add_user(self, username: str, password: str) -> int:

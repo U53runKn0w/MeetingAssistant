@@ -119,3 +119,7 @@ CREATE TABLE IF NOT EXISTS preference
     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
     UNIQUE (user_id, category)
 );
+
+
+INSERT INTO users (username, password)
+VALUES ('zhangsan', '123456'),

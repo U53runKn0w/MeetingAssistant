@@ -152,20 +152,20 @@
 import {fetchEventSource} from "@microsoft/fetch-event-source";
 import router from "@/router/index.js";
 import {createHeaders, parseReActContent} from "@/js/util.js";
-import {useChat} from "@/store/chat.js";
+import {useChatStore} from "@/store/chat.js";
 import {storeToRefs} from "pinia";
 import {nextTick, onMounted, ref, watch} from "vue";
-import {useErrorStore} from "@/store/error.js";
+import {useMessageStore} from "@/store/error.js";
 
 
 const productUrl = 'http://localhost:5000/api/chat';
 const testUrl = 'http://localhost:5000/api/chat/test';
 let url;
 
-const chat = useChat();
-const {question: userQuery} = storeToRefs(chat)
-const errorStore = useErrorStore()
-const {messages: messages} = storeToRefs(chat)
+const chatStore = useChatStore();
+const {question: userQuery} = storeToRefs(chatStore)
+const messageStore = useMessageStore()
+const {messages: messages} = storeToRefs(chatStore)
 
 const isGenerating = ref(false);
 const chatContainer = ref(null);
@@ -188,12 +188,11 @@ const sendMessage = async () => {
   } else {
     url = productUrl;
   }
-  chat.buttonsShow = false;
+  chatStore.buttonsShow = false;
   messages.value = [];
   isGenerating.value = true;
-  errorStore.clearError();
   const currentQuery = userQuery.value; // 先备份
-  chat.question = currentQuery;
+  chatStore.question = currentQuery;
 
   let rawAgentBuffer = "";
   let agentStartIndex = -1;
@@ -206,7 +205,7 @@ const sendMessage = async () => {
       method: 'POST',
       headers: createHeaders(),
       body: JSON.stringify({
-        meeting: chat.text,
+        meeting: chatStore.text,
         query: currentQuery
       }),
       signal: ctrl.signal,
@@ -214,8 +213,7 @@ const sendMessage = async () => {
 
       onopen: async (response) => {
         if (!response.ok) {
-          errorStore.setError(`请求错误: ${response.statusText}`);
-
+          messageStore.setError(`请求错误:${response.statusText}`);
           if (response.status === 401) {
             await router.push('/login');
           }
@@ -227,7 +225,7 @@ const sendMessage = async () => {
 
         switch (data.type) {
           case 'meta':
-            chat.sessionId = data.content;
+            chatStore.sessionId = data.content;
             break;
 
           case 'observation':
@@ -254,7 +252,7 @@ const sendMessage = async () => {
           case 'done':
             isGenerating.value = false;
             ctrl.abort();
-            chat.buttonsShow = true;
+            chatStore.buttonsShow = true;
             break;
         }
       },
@@ -265,8 +263,8 @@ const sendMessage = async () => {
       },
 
       onerror: (err) => {
-        console.error("SSE 异常:", err);
-        errorStore.setError('连接中断，请检查后端服务。');
+        console.error("SSE异常：", err);
+        messageStore.setError('连接中断，请检查后端服务。');
         isGenerating.value = false;
         ctrl.abort();
         throw err;
@@ -274,7 +272,7 @@ const sendMessage = async () => {
     });
   } catch (err) {
     console.error("Fetch Error:", err);
-    errorStore.setError(err.message);
+    messageStore.setError(err.message);
   }
 };
 

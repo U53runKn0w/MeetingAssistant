@@ -86,22 +86,25 @@
 <script setup>
 import {onMounted, ref} from 'vue';
 import service from "@/js/request.js";
-import {useChat} from "@/store/chat.js";
+import {useChatStore} from "@/store/chat.js";
 import {storeToRefs} from "pinia";
 import ConfirmModal from "@/components/ConfirmModal.vue";
+import {useMessageStore} from "@/store/error.js";
 
 const isCollapsed = ref(false);
-const chat = useChat()
+const chat = useChatStore()
 const history = ref([])
 const {sessionId} = storeToRefs(chat);
 const loading = ref(false);
+const messageStore = useMessageStore();
 
 const fetchHistory = async () => {
   loading.value = true;
   service.get('/history').then((data) => {
     history.value = data;
   }).catch((error) => {
-    console.error('获取历史记录失败:', error.response?.data || error.message);
+    messageStore.setError("获取历史记录失败")
+    console.error("获取历史记录失败：", error.response?.data || error.message);
   }).finally(() => {
     loading.value = false;
   });
