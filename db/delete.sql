@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS meetings;
+DROP TABLE IF EXISTS attendees;
+DROP TABLE IF EXISTS agenda_conclusions;
+DROP TABLE IF EXISTS todos;
+DROP TABLE IF EXISTS follow_ups;
+DROP TABLE IF EXISTS dialog_steps;
+DROP TABLE IF EXISTS chat_sessions;
+DROP TABLE IF EXISTS preference;

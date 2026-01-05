@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS todos
     owner      TEXT    NOT NULL,
     task       TEXT    NOT NULL,
     deadline   TIMESTAMP,
-    status     TEXT DEFAULT 'pending', -- pending/in_progress/completed
+    status     TEXT DEFAULT 'pending',
     FOREIGN KEY (meeting_id) REFERENCES meetings (meeting_id) ON DELETE CASCADE
 );
 
@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS follow_ups
 CREATE TABLE IF NOT EXISTS chat_sessions
 (
     session_id TEXT PRIMARY KEY, -- 唯一会话ID (建议使用 UUID 或 时间戳)
-    user_id    TEXT NOT NULL,    -- 用户标识，如 "zhangsan"
+    user_id    INTEGER NOT NULL,
     query      TEXT,             -- 对话标题，可由模型自动生成或记录第一句话
     meeting    TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -119,13 +119,3 @@ CREATE TABLE IF NOT EXISTS preference
     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
     UNIQUE (user_id, category)
 );
-
--- DROP TABLE IF EXISTS users;
--- DROP TABLE IF EXISTS meetings;
--- DROP TABLE IF EXISTS attendees;
--- DROP TABLE IF EXISTS agenda_conclusions;
--- DROP TABLE IF EXISTS todos;
--- DROP TABLE IF EXISTS follow_ups;
--- DROP TABLE IF EXISTS chat_sessions;
--- DROP TABLE IF EXISTS dialog_steps;
--- DROP TABLE IF EXISTS preference;
