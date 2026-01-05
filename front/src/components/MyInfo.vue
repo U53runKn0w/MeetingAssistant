@@ -192,7 +192,7 @@ const fetchData = async () => {
       myData.value.todos = data.data;
     }
   }).catch(error => {
-    messageStore.setError("待办加载失败");
+    messageStore.setNetworkError('failed');
     console.error("待办加载失败", error);
   });
 
@@ -203,7 +203,7 @@ const fetchData = async () => {
       if (data.data.length > 0) myData.value.nextMeeting = data.data[0];
     }
   }).catch(error => {
-    messageStore.setError("会议加载失败");
+    messageStore.setNetworkError('failed');
     console.error("会议加载失败", error);
   });
 
@@ -212,7 +212,7 @@ const fetchData = async () => {
       myData.value.preferences = data.data;
     }
   }).catch(err => {
-    messageStore.setError("偏好加载失败");
+    messageStore.setNetworkError('failed');
     console.error("偏好加载失败", err);
   });
 };

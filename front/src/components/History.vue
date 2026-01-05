@@ -103,7 +103,7 @@ const fetchHistory = async () => {
   service.get('/history').then((data) => {
     history.value = data;
   }).catch((error) => {
-    messageStore.setError("获取历史记录失败")
+    messageStore.setNetworkError('failed');
     console.error("获取历史记录失败：", error.response?.data || error.message);
   }).finally(() => {
     loading.value = false;
@@ -130,6 +130,7 @@ const selectSession = async (item) => {
     }
 
   }).catch((error) => {
+    messageStore.setNetworkError('failed');
     console.error('加载会话详情失败:', error);
   });
 };
@@ -170,7 +171,11 @@ const handleDelete = async () => {
   try {
     service.delete(`/history/${itemToDelete.value.session_id}`).then((data) => {
       history.value = history.value.filter(h => h.session_id !== itemToDelete.value.session_id);
+      messageStore.setSuccess('删除成功');
       isModalVisible.value = false;
+    }).catch((error) => {
+      messageStore.setClientError('badRequest');
+      console.error('删除失败:', error);
     });
   } finally {
     isDeleting.value = false;

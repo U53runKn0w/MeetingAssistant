@@ -125,8 +125,16 @@ const handleLogin = async () => {
     localStorage.setItem('token', data.access_token);
     router.push('/');
   }).catch(error => {
-    console.log(error);
-    errorMessage.value = '账号或密码错误，请检查后重试。';
+    console.error('登录失败:', error);
+    if (error.response?.status === 401) {
+      errorMessage.value = '账号或密码错误，请检查后重试';
+    } else if (error.response?.status >= 500) {
+      errorMessage.value = '服务器错误，请稍后重试';
+    } else if (error.request) {
+      errorMessage.value = '网络连接失败，请检查网络设置';
+    } else {
+      errorMessage.value = '登录失败，请稍后重试';
+    }
   }).finally(() => {
     isSubmitting.value = false;
   })

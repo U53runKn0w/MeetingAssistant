@@ -228,9 +228,15 @@ const sendMessage = async (isResume = false) => {
 
       onopen: async (response) => {
         if (!response.ok) {
-          messageStore.setError(`请求错误:${response.statusText}`);
           if (response.status === 401) {
+            messageStore.setAuthError('tokenExpired');
             await router.push('/login');
+          } else if (response.status >= 500) {
+            messageStore.setServerError('internal');
+          } else if (response.status >= 400) {
+            messageStore.setClientError('badRequest');
+          } else {
+            messageStore.setError(`请求失败: ${response.statusText || '未知错误'}`);
           }
         }
       },
@@ -291,11 +297,12 @@ const sendMessage = async (isResume = false) => {
         // 如果有 session_id，尝试重连
         if (chatStore.sessionId && isGenerating.value) {
           console.log("尝试断线重连...");
-          messageStore.setError('连接中断，正在重新连接...');
+          messageStore.setWarning('连接中断，正在重新连接...');
           await new Promise(resolve => setTimeout(resolve, 2000)); // 等待2秒
           await sendMessage(true); // 重连时传入 isResume=true
         } else {
-          messageStore.setError('连接中断，请检查后端服务。');
+          messageStore.setNetworkError('failed');
+          messageStore.setInfo('提示：如果问题持续存在，请联系管理员');
           isGenerating.value = false;
           ctrl.abort();
           throw err;
@@ -304,7 +311,11 @@ const sendMessage = async (isResume = false) => {
     });
   } catch (err) {
     console.error("Fetch Error:", err);
-    messageStore.setError(err.message);
+    if (err.name === 'AbortError') {
+      messageStore.setInfo('已停止生成');
+    } else {
+      messageStore.setError('发生未知错误，请刷新页面后重试');
+    }
   }
 };
 

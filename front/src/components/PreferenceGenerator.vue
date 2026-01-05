@@ -113,9 +113,15 @@ const generatePreference = async () => {
 
       onopen: async (response) => {
         if (!response.ok) {
-          messageStore.setError(`请求错误: ${response.statusText}`);
           if (response.status === 401) {
+            messageStore.setAuthError('tokenExpired');
             await router.push('/login');
+          } else if (response.status >= 500) {
+            messageStore.setServerError('internal');
+          } else if (response.status >= 400) {
+            messageStore.setClientError('badRequest');
+          } else {
+            messageStore.setError(`请求失败: ${response.statusText || '未知错误'}`);
           }
         }
       },
@@ -159,7 +165,8 @@ const generatePreference = async () => {
 
       onerror: (err) => {
         console.error("SSE 异常:", err);
-        messageStore.setError('连接中断，请检查后端服务。');
+        messageStore.setNetworkError('failed');
+        messageStore.setInfo('提示：生成偏好时发生错误，请稍后重试');
         isGenerating.value = false;
         ctrl.abort();
         throw err;

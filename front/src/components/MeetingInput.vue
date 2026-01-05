@@ -62,8 +62,24 @@ const handleFileUpload = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
 
+  // 验证文件类型
+  if (!file.type.startsWith('audio/')) {
+    messageStore.setClientError('invalidParams');
+    messageStore.setInfo('提示：请选择音频文件（mp3、wav、m4a等格式）');
+    event.target.value = '';
+    return;
+  }
+
+  // 验证文件大小（限制为50MB）
+  const maxSize = 50 * 1024 * 1024;
+  if (file.size > maxSize) {
+    messageStore.setClientError('invalidParams');
+    messageStore.setInfo('提示：音频文件大小不能超过50MB');
+    event.target.value = '';
+    return;
+  }
+
   isUploading.value = true;
-  messageStore.removeError();
 
   const formData = new FormData();
   formData.append('file', file);
@@ -74,8 +90,11 @@ const handleFileUpload = async (event) => {
 
     await new Promise(resolve => setTimeout(resolve, 2000));
     meetingText.value = dummyMeeting;
+    messageStore.setSuccess('音频转录成功');
   } catch (err) {
-    messageStore.setError("文件转录失败，请检查后端接口。");
+    console.error('音频转录失败:', err);
+    messageStore.setNetworkError('failed');
+    messageStore.setInfo('提示：请检查音频文件格式是否支持');
   } finally {
     isUploading.value = false;
     event.target.value = ''; // 重置 file input
