@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS follow_ups
 -- 7. 对话记录表
 -- ---------------------------------------------------------
 -- 1. 对话会话表：存储一次完整对话的背景信息
-CREATE TABLE chat_sessions
+CREATE TABLE IF NOT EXISTS chat_sessions
 (
     session_id TEXT PRIMARY KEY, -- 唯一会话ID (建议使用 UUID 或 时间戳)
     user_id    TEXT NOT NULL,    -- 用户标识，如 "zhangsan"
@@ -93,7 +93,7 @@ CREATE TABLE chat_sessions
 );
 
 -- 2. 对话步骤明细表：存储 ReAct 的每一个环节
-CREATE TABLE dialog_steps
+CREATE TABLE IF NOT EXISTS dialog_steps
 (
     step_id        INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id     TEXT    NOT NULL, -- 关联 sessions 表
@@ -105,7 +105,7 @@ CREATE TABLE dialog_steps
 );
 
 -- 为常用查询字段创建索引，提升检索速度
-CREATE INDEX idx_session_order ON dialog_steps (session_id, sequence_order);
+CREATE INDEX IF NOT EXISTS idx_session_order ON dialog_steps (session_id, sequence_order);
 
 -- ---------------------------------------------------------
 -- 8. 偏好设置表
