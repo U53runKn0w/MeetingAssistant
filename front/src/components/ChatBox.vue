@@ -325,6 +325,7 @@ const stopGeneration = () => {
     abortController.value = null;
   }
   isGenerating.value = false;
+  chatStore.messages = [];
   chatStore.buttonsShow = true;
 };
 

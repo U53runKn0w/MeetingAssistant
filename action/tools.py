@@ -10,6 +10,93 @@ from langchain_core.prompts import ChatPromptTemplate
 from db.manager import db
 from .models import BasicInfo, AgendaConclusion, TodoItem, FollowUp, Preference
 
+
+@tool
+def search_term_explanation(terms: str) -> str:
+    """
+    【适用场景】当会议中出现AI不理解的专有名词、技术术语、行业术语时使用。
+    【调用时机】遇到陌生名词、缩写、专业术语需要联网查询解释时。
+    【参数要求】terms可以是一个或多个名词，多个名词用逗号分隔。例如："AGI, RAG" 或 "微服务架构"。
+    【返回内容】返回每个名词的简要解释，包含定义、背景和应用场景。
+    【工作原理】使用DuckDuckGo搜索引擎查询术语的定义和解释信息。
+    """
+    try:
+        from ddgs import DDGS
+
+        # 解析输入的多个术语
+        term_list = [t.strip() for t in terms.split(',') if t.strip()]
+
+        results = []
+
+        for term in term_list:
+            try:
+                # 使用DuckDuckGo搜索，添加重试机制和更简单的搜索参数
+                ddgs = DDGS()
+                search_results = []
+
+                # 尝试搜索，最多重试2次
+                for attempt in range(3):
+                    try:
+                        search_results = list(ddgs.text(
+                            f"{term} 是什么 定义",
+                            max_results=2,
+                            timeout=10
+                        ))
+                        if search_results:
+                            break
+                    except Exception as e:
+                        if attempt < 2:
+                            continue
+                        raise
+
+                if not search_results:
+                    results.append({
+                        "term": term,
+                        "explanation": f"未找到关于「{term}」的相关解释信息，可能是网络连接问题或该术语过于生僻。"
+                    })
+                    continue
+
+                # 整合搜索结果
+                explanations = []
+                for result in search_results:
+                    body = result.get('body', '')
+                    if body:
+                        # 简化解释，提取关键信息
+                        explanation = body[:200] + "..." if len(body) > 200 else body
+                        explanations.append(explanation)
+
+                # 生成简洁的解释摘要
+                if explanations:
+                    combined_explanation = " ".join(explanations[:2])  # 只取前两个结果
+                else:
+                    combined_explanation = f"找到相关结果但无法提取解释内容。"
+
+                results.append({
+                    "term": term,
+                    "explanation": combined_explanation
+                })
+
+            except Exception as e:
+                results.append({
+                    "term": term,
+                    "explanation": f"搜索「{term}」时遇到网络错误，请稍后重试。"
+                })
+
+        # 格式化返回结果
+        if len(results) == 1:
+            return f"【{results[0]['term']}】{results[0]['explanation']}"
+        else:
+            formatted_result = []
+            for r in results:
+                formatted_result.append(f"【{r['term']}】{r['explanation']}")
+            return "".join(formatted_result)
+
+    except ImportError:
+        return "错误：请先安装duckduckgo-search库（pip install duckduckgo-search）"
+    except Exception as e:
+        return f"搜索服务异常：{str(e)}"
+
+
 shared_llm = ChatDeepSeek(model="deepseek-chat", temperature=0, streaming=True)
 
 

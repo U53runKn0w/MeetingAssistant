@@ -7,7 +7,7 @@ from langchain_core.prompts import PromptTemplate
 import config
 import asyncio
 from action.tools import extract_meeting_basic_info, parse_meeting_agenda_conclusion, generate_meeting_todo, \
-    mark_meeting_follow_up, generate_user_preferences, get_user_info
+    mark_meeting_follow_up, generate_user_preferences, get_user_info, search_term_explanation
 from config import template, meeting, template_perference, template_mindmap
 from db.manager import db
 
@@ -28,7 +28,8 @@ def create_agent(callbacks=None):
              parse_meeting_agenda_conclusion,
              generate_meeting_todo,
              mark_meeting_follow_up,
-             get_user_info]
+             get_user_info,
+             search_term_explanation]
 
     prompt = PromptTemplate.from_template(template)
 
