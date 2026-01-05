@@ -161,13 +161,24 @@ def parse_react_content(full_text):
     return result
 
 
-async def run_agent_async_generator(executor, data, session_id=None):
-    # 用于存储最终解析后的结构化消息数组
+async def run_agent_async_generator(executor, data, session_id=None, step_offset=0):
+    # 用于存储最终解析后的结构化消息数组（可选，用于调试或其他用途）
     final_chat_history = []
     # 模拟前端的 rawAgentBuffer
     raw_agent_buffer = ""
+    # 步骤序号计数器
+    step_counter = 0
 
-    if session_id:
+    # 如果指定了 step_offset，需要从数据库中恢复步骤状态
+    if session_id and step_offset > 0:
+        # 1. 获取已保存的步骤
+        existing_steps = db.get_chat_detail(session_id)
+        # 2. 将计数器设置为已有步骤数量
+        step_counter = len(existing_steps)
+        # 3. 发送恢复信号，通知前端已恢复到指定位置
+        yield f"data: {json.dumps({'type': 'resumed', 'content': step_counter})}\n\n"
+
+    if session_id and step_offset == 0:
         yield f"data: {json.dumps({'type': 'meta', 'content': session_id})}\n\n"
 
     async for event in executor.astream_events(data, version="v2"):
@@ -187,6 +198,14 @@ async def run_agent_async_generator(executor, data, session_id=None):
             # 1. 遇到 Observation 前，先解析并归档之前的 Agent Buffer
             if raw_agent_buffer:
                 parsed_segments = parse_react_content(raw_agent_buffer)
+                # 实时保存每个解析出的步骤
+                if session_id:
+                    for segment in parsed_segments:
+                        try:
+                            db.save_chat_step(session_id, segment, step_counter)
+                            step_counter += 1
+                        except Exception as e:
+                            print(f"保存步骤失败: {e}")
                 final_chat_history.extend(parsed_segments)
                 raw_agent_buffer = ""  # 清空，同前端逻辑
 
@@ -194,7 +213,16 @@ async def run_agent_async_generator(executor, data, session_id=None):
             tool_output = event["data"].get("output")
             # 模拟前端 content.substring(content.indexOf(':') + 1).trim()
             obs_text = str(tool_output).strip()
-            final_chat_history.append({'type': 'Observation', 'text': obs_text})
+            observation_step = {'type': 'Observation', 'text': obs_text}
+            final_chat_history.append(observation_step)
+
+            # 实时保存 Observation
+            if session_id:
+                try:
+                    db.save_chat_step(session_id, observation_step, step_counter)
+                    step_counter += 1
+                except Exception as e:
+                    print(f"保存 Observation 步骤失败: {e}")
 
             yield f"data: {json.dumps({'type': 'observation', 'content': f'Observation: {tool_output}'})}\n\n"
 
@@ -202,21 +230,26 @@ async def run_agent_async_generator(executor, data, session_id=None):
             # 最后结束前，处理残留在 buffer 中的 Final Answer
             if raw_agent_buffer:
                 parsed_segments = parse_react_content(raw_agent_buffer)
+                # 实时保存 Final Answer
+                if session_id:
+                    for segment in parsed_segments:
+                        try:
+                            db.save_chat_step(session_id, segment, step_counter)
+                            step_counter += 1
+                        except Exception as e:
+                            print(f"保存 Final Answer 步骤失败: {e}")
                 final_chat_history.extend(parsed_segments)
 
-            # --- 存储逻辑 ---
-            # 在这里将 final_chat_history 存入数据库
-            if session_id:
-                db.save_chat_steps(session_id, final_chat_history)
-            # print("完整消息记录:", json.dumps(final_chat_history, ensure_ascii=False, indent=2))
+            # 注意：由于已经实时保存，这里不再需要批量保存
+            # 如果需要保留最终历史记录用于其他用途，可以保留 final_chat_history
 
             yield f"data: {json.dumps({'type': 'done', 'content': ''})}\n\n"
 
 
-def generate_answer(chain, data, session_id=None):
+def generate_answer(chain, data, session_id=None, step_offset=0):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    gen = run_agent_async_generator(chain, data, session_id)
+    gen = run_agent_async_generator(chain, data, session_id, step_offset)
 
     try:
         while True:

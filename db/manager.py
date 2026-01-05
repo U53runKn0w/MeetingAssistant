@@ -232,6 +232,30 @@ class MeetingDB:
                 print(f"保存对话步骤失败: {e}")
                 raise e
 
+    def save_chat_step(self, session_id: str, step_data: Dict, sequence_order: int):
+        """
+        实时保存单个 ReAct 步骤
+        :param session_id: 所属会话 ID
+        :param step_data: 格式为 {'type': '...', 'text': '...'} 的字典
+        :param sequence_order: 步骤序号
+        """
+        with self.SessionLocal() as session:
+            step = DialogStep(
+                session_id=session_id,
+                sequence_order=sequence_order,
+                type=step_data.get('type'),
+                content=step_data.get('text'),
+                created_at=datetime.now(ZoneInfo("Asia/Shanghai"))
+            )
+            session.add(step)
+
+            try:
+                session.commit()
+            except Exception as e:
+                session.rollback()
+                print(f"保存单个对话步骤失败: {e}")
+                raise e
+
     def delete_chat_session(self, session_id: str, user_id: int) -> bool:
         """
         删除会话及其关联的所有步骤

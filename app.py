@@ -37,6 +37,7 @@ def chat():
     m = request.json.get('meeting', meeting)
     query = request.json.get('query', '请总结会议内容')
     session_id = request.json.get('session_id')
+    step_offset = request.json.get('step_offset', 0)  # 新增：从第几步开始输出
     if m.strip() == '':
         m = meeting
     if query.strip() == '':
@@ -49,7 +50,7 @@ def chat():
         pass
 
     agent_executor = create_agent()
-    return Response(generate_answer(agent_executor, {"input": query, "meeting": m, "username": username}, session_id),
+    return Response(generate_answer(agent_executor, {"input": query, "meeting": m, "username": username}, session_id, step_offset),
                     mimetype='text/event-stream')
 
 
@@ -119,7 +120,7 @@ def save_conversation():
         # 1. 创建 Session
         session_id = db.create_chat_session(user_id, req_data.get('title'))
         # 2. 保存步骤
-        db.save_chat_steps(session_id, req_data.get('steps'))
+        db.save_dialog_steps(session_id, req_data.get('steps'))
         return jsonify({"status": "success", "session_id": session_id}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500

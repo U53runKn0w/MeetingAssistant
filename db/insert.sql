@@ -11,7 +11,9 @@ VALUES ('zhangsan', '123456'),
 INSERT INTO preference (user_id, category, preference)
 VALUES (1, 'output_language', 'zh-CN'),
        (1, 'analysis_style', 'concise'),
-       (2, 'output_language', 'en-US');
+       (2, 'output_language', 'en-US'),
+       (2, 'analysis_style', 'verbose');
+
 
 -- 插入会议 (假设 2026年1月1日)
 INSERT INTO meetings (user_id, subject, start_time, duration)

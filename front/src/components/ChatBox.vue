@@ -180,7 +180,7 @@ onMounted(() => {
   });
 })
 
-const sendMessage = async () => {
+const sendMessage = async (isResume = false) => {
   if (!userQuery.value || isGenerating.value) return;
 
   if (isTest.value) {
@@ -189,7 +189,9 @@ const sendMessage = async () => {
     url = productUrl;
   }
   chatStore.buttonsShow = false;
-  messages.value = [];
+  if (!isResume) {
+    messages.value = [];
+  }
   isGenerating.value = true;
   const currentQuery = userQuery.value; // 先备份
   chatStore.question = currentQuery;
@@ -206,7 +208,9 @@ const sendMessage = async () => {
       headers: createHeaders(),
       body: JSON.stringify({
         meeting: chatStore.text,
-        query: currentQuery
+        query: currentQuery,
+        session_id: chatStore.sessionId,
+        step_offset: isResume ? messages.value.length : 0
       }),
       signal: ctrl.signal,
       openWhenHidden: true,
@@ -226,6 +230,12 @@ const sendMessage = async () => {
         switch (data.type) {
           case 'meta':
             chatStore.sessionId = data.content;
+            break;
+
+          case 'resumed':
+            // 恢复成功，从数据库获取已保存的步骤
+            console.log(`已恢复到步骤 ${data.content}`);
+            // 从数据库加载历史步骤（可选，如果前端已缓存则不需要）
             break;
 
           case 'observation':
@@ -258,16 +268,25 @@ const sendMessage = async () => {
       },
 
       onclose: () => {
-        isGenerating.value = false;
-        console.log("连接正常关闭");
+        if (!isGenerating.value) {
+          console.log("连接正常关闭");
+        }
       },
 
-      onerror: (err) => {
+      onerror: async (err) => {
         console.error("SSE异常：", err);
-        messageStore.setError('连接中断，请检查后端服务。');
-        isGenerating.value = false;
-        ctrl.abort();
-        throw err;
+        // 如果有 session_id，尝试重连
+        if (chatStore.sessionId && isGenerating.value) {
+          console.log("尝试断线重连...");
+          messageStore.setError('连接中断，正在重新连接...');
+          await new Promise(resolve => setTimeout(resolve, 2000)); // 等待2秒
+          await sendMessage(true); // 重连时传入 isResume=true
+        } else {
+          messageStore.setError('连接中断，请检查后端服务。');
+          isGenerating.value = false;
+          ctrl.abort();
+          throw err;
+        }
       }
     });
   } catch (err) {
