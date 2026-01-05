@@ -125,7 +125,7 @@
             <button class="close-pill" @click="isSubModalOpen = false">返回</button>
           </div>
           <div class="modal-body-custom">
-            <PreferenceGenerator></PreferenceGenerator>
+            <PreferenceGenerator @preferenceGenerated="fetchData"></PreferenceGenerator>
           </div>
         </div>
       </div>

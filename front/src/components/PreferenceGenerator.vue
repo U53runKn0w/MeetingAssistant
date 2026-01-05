@@ -77,6 +77,8 @@ import {createHeaders, parseReActContent} from "@/js/util.js";
 import router from "@/router/index.js";
 import {useMessageStore} from "@/store/error.js";
 
+const emit = defineEmits(['preferenceGenerated']);
+
 const apiURL = 'http://localhost:5000/api/preference'; // 您的SSE接口
 
 const userQuery = ref('');
@@ -154,6 +156,7 @@ const generatePreference = async () => {
           case 'done':
             isGenerating.value = false;
             ctrl.abort();
+            emit('preferenceGenerated');
             break;
         }
       },
