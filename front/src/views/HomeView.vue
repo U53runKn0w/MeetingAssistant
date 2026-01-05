@@ -1,6 +1,6 @@
 <template>
   <div class="d-flex min-vh-100">
-    <History/>
+    <History ref="historyRef"/>
 
     <div class="flex-grow-1 overflow-auto">
       <div class="container mt-5 mb-5">
@@ -13,7 +13,7 @@
 
         <div class="row g-4">
           <MeetingInput></MeetingInput>
-          <ChatBox></ChatBox>
+          <ChatBox @refresh-history="refreshHistory"></ChatBox>
           <ChatTools></ChatTools>
         </div>
       </div>
@@ -22,11 +22,20 @@
 </template>
 
 <script setup>
+import {ref} from 'vue';
 import MyInfo from "@/components/MyInfo.vue";
 import MeetingInput from "@/components/MeetingInput.vue";
 import ChatBox from "@/components/ChatBox.vue";
 import ChatTools from "@/components/ChatTools.vue";
 import History from "@/components/History.vue";
+
+const historyRef = ref(null);
+
+const refreshHistory = () => {
+  if (historyRef.value) {
+    historyRef.value.fetchHistory();
+  }
+};
 </script>
 
 <style scoped></style>

@@ -176,6 +176,11 @@ const handleDelete = async () => {
     isDeleting.value = false;
   }
 };
+
+// 暴露 fetchHistory 方法供父组件调用
+defineExpose({
+  fetchHistory
+});
 </script>
 
 <style scoped>

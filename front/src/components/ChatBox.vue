@@ -134,10 +134,16 @@
                 placeholder="输入关于会议的问题（例如：总结待办事项）..."
                 :disabled="isGenerating"
             />
-            <button type="submit" class="btn btn-primary px-4" :disabled="isGenerating || !userQuery">
-              <span v-if="isGenerating" class="spinner-border spinner-border-sm me-2"></span>
-              <i v-else class="bi bi-send-fill me-2"></i>
-              {{ isGenerating ? '分析中' : '发送' }}
+            <button
+                v-if="isGenerating"
+                type="button"
+                class="btn btn-danger px-4"
+                @click="stopGeneration"
+            >
+              <i class="bi bi-stop-fill me-2"></i>停止
+            </button>
+            <button v-else type="submit" class="btn btn-primary px-4" :disabled="!userQuery">
+              <i class="bi bi-send-fill me-2"></i>发送
             </button>
           </div>
 
@@ -162,6 +168,9 @@ const productUrl = 'http://localhost:5000/api/chat';
 const testUrl = 'http://localhost:5000/api/chat/test';
 let url;
 
+// 定义 emit 用于触发父组件的事件
+const emit = defineEmits(['refresh-history']);
+
 const chatStore = useChatStore();
 const {question: userQuery} = storeToRefs(chatStore)
 const messageStore = useMessageStore()
@@ -172,6 +181,7 @@ const chatContainer = ref(null);
 const isFullScreen = ref(false);
 const fullChatContainer = ref(null);
 const isTest = ref(false);
+const abortController = ref(null);
 
 onMounted(() => {
   window.addEventListener('keydown', (e) => {
@@ -201,6 +211,7 @@ const sendMessage = async (isResume = false) => {
 
   // 手动关闭连接
   const ctrl = new AbortController();
+  abortController.value = ctrl;
 
   try {
     await fetchEventSource(url, {
@@ -230,6 +241,8 @@ const sendMessage = async (isResume = false) => {
         switch (data.type) {
           case 'meta':
             chatStore.sessionId = data.content;
+            // 收到 sessionId 后立即刷新历史记录
+            emit('refresh-history');
             break;
 
           case 'resumed':
@@ -293,6 +306,15 @@ const sendMessage = async (isResume = false) => {
     console.error("Fetch Error:", err);
     messageStore.setError(err.message);
   }
+};
+
+const stopGeneration = () => {
+  if (abortController.value) {
+    abortController.value.abort();
+    abortController.value = null;
+  }
+  isGenerating.value = false;
+  chatStore.buttonsShow = true;
 };
 
 
