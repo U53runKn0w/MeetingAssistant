@@ -108,5 +108,39 @@ def get_chat_detail(session_id):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/history/save', methods=['POST'])
+@jwt_required()
+def save_conversation():
+    """保存新对话接口（模型回答完成后调用）"""
+    req_data = request.json  # 期望格式: { "title": "...", "steps": [...] }
+    username = get_jwt_identity()
+    user_id = db.get_user_id(username)
+    try:
+        # 1. 创建 Session
+        session_id = db.create_chat_session(user_id, req_data.get('title'))
+        # 2. 保存步骤
+        db.save_chat_steps(session_id, req_data.get('steps'))
+        return jsonify({"status": "success", "session_id": session_id}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/history/<session_id>', methods=['DELETE'])
+@jwt_required()
+def delete_history(session_id):
+    """删除指定的历史记录"""
+    username = get_jwt_identity()
+    user_id = db.get_user_id(username)
+    try:
+        success = db.delete_chat_session(session_id, user_id)
+        if success:
+            return jsonify({"message": "删除成功"}), 200
+        else:
+            return jsonify({"error": "未找到记录或无权删除"}), 404
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

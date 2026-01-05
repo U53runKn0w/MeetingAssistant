@@ -160,9 +160,8 @@ class MeetingDB:
             results = session.execute(stmt).scalars().all()
             steps = [
                 {"type": step.type, "text": step.content}
-                for step in results
+                for step in sorted(results, key=lambda r: r.sequence_order)
             ]
-            steps.sort(key=lambda step: step.sequence_order)
             return steps
 
     def create_chat_session(self, user_id: int, title: str) -> str:
@@ -199,6 +198,28 @@ class MeetingDB:
                 session.rollback()
                 print(f"保存对话步骤失败: {e}")
                 raise e
+
+    def delete_chat_session(self, session_id: str, user_id: int) -> bool:
+        """
+        删除会话及其关联的所有步骤
+        :param session_id: 会话唯一ID
+        :param user_id: 用户ID（安全校验，确保用户只能删除自己的记录）
+        """
+        with self.SessionLocal() as session:
+            # 1. 先查找该会话
+            stmt = select(ChatSession).where(
+                ChatSession.session_id == session_id,
+                ChatSession.user_id == user_id
+            )
+            chat_session = session.execute(stmt).scalar_one_or_none()
+
+            if chat_session:
+                # 2. 执行删除。由于我们在 models.py 中定义了 relationship 的 cascade，
+                # 删除 chat_session 会自动删除关联的 chat_steps。
+                session.delete(chat_session)
+                session.commit()
+                return True
+            return False
 
 
 db = MeetingDB()

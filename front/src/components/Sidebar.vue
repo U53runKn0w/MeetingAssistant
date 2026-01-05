@@ -45,6 +45,30 @@
             <div class="date">{{ formatDate(item.created_at) }}</div>
           </div>
 
+          <button class="delete-btn" @click.stop="openDeleteModal(item)">...</button>
+
+          <ConfirmModal
+              v-model="isModalVisible"
+              title="确认删除"
+              :loading="isDeleting"
+              confirm-text="确认删除"
+              @confirm="handleDelete"
+          >
+            确定要删除对话 <strong>“{{ itemToDelete?.title }}”</strong> 吗？
+          </ConfirmModal>
+
+          <button
+              v-if="!isCollapsed"
+              class="delete-btn"
+              @click.stop="openDeleteModal(item)"
+              title="删除记录"
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </button>
+
           <div class="tooltip" v-if="isCollapsed">{{ item.title || '新对话' }}</div>
         </div>
       </div>
@@ -58,6 +82,98 @@
     </div>
   </div>
 </template>
+
+<script setup>
+import {onMounted, ref} from 'vue';
+import service from "@/js/request.js";
+import {useChat} from "@/store/chat.js";
+import {useSession} from "@/store/session.js";
+import {storeToRefs} from "pinia";
+import ConfirmModal from "@/components/ConfirmModal.vue";
+
+const isCollapsed = ref(false);
+const session = useSession();
+const chat = useChat()
+const {sessionId, history} = storeToRefs(session);
+const loading = ref(false);
+
+const fetchHistory = async () => {
+  loading.value = true;
+  service.get('/history').then((data) => {
+    history.value = data;
+  }).catch((error) => {
+    console.error('获取历史记录失败:', error.response?.data || error.message);
+  }).finally(() => {
+    loading.value = false;
+  });
+};
+
+const selectSession = async (item) => {
+  sessionId.value = item.session_id;
+
+  service.get(`/history/${item.session_id}`).then((data) => {
+    chat.messages = []
+    data.forEach((item) => {
+      chat.messages.push({
+        "type": item.type,
+        "text": item.text,
+      });
+    })
+
+    chat.question = item.title;
+
+    if (chat.messages.length > 0 && chat.question.length > 0) {
+      chat.buttonsShow = true;
+    }
+
+  }).catch((error) => {
+    console.error('加载会话详情失败:', error);
+  });
+};
+
+
+onMounted(() => {
+  fetchHistory();
+});
+
+function formatDate(dateString) {
+  const date = new Date(dateString);
+
+  if (isNaN(date.getTime())) return "Invalid Date";
+
+  const pad = (num) => String(num).padStart(2, '0');
+
+  const YYYY = date.getFullYear();
+  const MM = pad(date.getMonth() + 1);
+  const DD = pad(date.getDate());
+  const HH = pad(date.getHours());
+  const mm = pad(date.getMinutes());
+  const ss = pad(date.getSeconds());
+
+  return `${YYYY}-${MM}-${DD} ${HH}:${mm}:${ss}`;
+}
+
+const isModalVisible = ref(false);
+const itemToDelete = ref(null);
+const isDeleting = ref(false);
+
+const openDeleteModal = (item) => {
+  itemToDelete.value = item;
+  isModalVisible.value = true;
+};
+
+const handleDelete = async () => {
+  isDeleting.value = true;
+  try {
+    service.delete(`/history/${itemToDelete.value.session_id}`).then((data) => {
+      history.value = history.value.filter(h => h.session_id !== itemToDelete.value.session_id);
+      isModalVisible.value = false;
+    });
+  } finally {
+    isDeleting.value = false;
+  }
+};
+</script>
 
 <style scoped>
 /* 变量定义 */
@@ -298,74 +414,51 @@
     opacity: 1;
   }
 }
+
+/* 删除按钮基础样式 */
+.delete-btn {
+  position: absolute;
+  right: 8px;
+  opacity: 0; /* 平时隐藏 */
+  padding: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hover item 时显示按钮 */
+.nav-item:hover .delete-btn {
+  opacity: 1;
+}
+
+/* 按钮自身的 Hover 效果 */
+.delete-btn:hover {
+  background-color: #fee2e2; /* 浅红色背景 */
+  color: #ef4444; /* 红色图标 */
+}
+
+/* 如果是 Active 状态，调整按钮颜色以适配蓝色背景 */
+.nav-item.is-active .delete-btn {
+  color: #60a5fa;
+}
+
+.nav-item.is-active .delete-btn:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* 确保文字不会被按钮挡住 */
+.nav-item:hover .nav-text {
+  padding-right: 24px;
+}
+
+
 </style>
 
-<script setup>
-import {onMounted, ref} from 'vue';
-import service from "@/js/request.js";
-import {useChat} from "@/store/chat.js";
-import {useSession} from "@/store/session.js";
-import {storeToRefs} from "pinia";
 
-const isCollapsed = ref(false);
-const session = useSession();
-const chat = useChat()
-const {sessionId, history} = storeToRefs(session);
-const loading = ref(false);
-
-const fetchHistory = async () => {
-  loading.value = true;
-  service.get('/history').then((data) => {
-    history.value = data;
-  }).catch((error) => {
-    console.error('获取历史记录失败:', error.response?.data || error.message);
-  }).finally(() => {
-    loading.value = false;
-  });
-};
-
-const selectSession = async (item) => {
-  sessionId.value = item.session_id;
-
-  service.get(`/history/${item.session_id}`).then((data) => {
-    chat.messages = []
-    data.forEach((item) => {
-      chat.messages.push({
-        "type": item.type,
-        "text": item.text,
-      });
-    })
-
-    chat.question = item.title;
-
-    if (chat.messages.length > 0 && chat.question.length > 0) {
-      chat.buttonsShow = true;
-    }
-
-  }).catch((error) => {
-    console.error('加载会话详情失败:', error);
-  });
-};
-
-
-onMounted(() => {
-  fetchHistory();
-});
-
-function formatDate(dateString) {
-  const date = new Date(dateString);
-
-  if (isNaN(date.getTime())) return "Invalid Date";
-
-  const pad = (num) => String(num).padStart(2, '0');
-
-  const YYYY = date.getFullYear();
-  const MM = pad(date.getMonth() + 1);
-  const DD = pad(date.getDate());
-  const HH = pad(date.getHours());
-  const mm = pad(date.getMinutes());
-  const ss = pad(date.getSeconds());
-
-  return `${YYYY}-${MM}-${DD} ${HH}:${mm}:${ss}`;
-}
-</script>
