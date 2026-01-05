@@ -29,6 +29,7 @@ class Meeting(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"))
     subject: Mapped[str] = mapped_column(Text, nullable=False)
     start_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    content: Mapped[Optional[str]] = mapped_column(Text)
     duration: Mapped[Optional[int]] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
@@ -36,6 +37,7 @@ class Meeting(Base):
     user: Mapped["User"] = relationship(back_populates="meetings")
     attendees: Mapped[List["Attendee"]] = relationship(back_populates="meeting", cascade="all, delete-orphan")
     todos: Mapped[List["Todo"]] = relationship(back_populates="meeting", cascade="all, delete-orphan")
+    conversations: Mapped[List["Conversation"]] = relationship(back_populates="meeting", cascade="all, delete-orphan")
 
 
 class Attendee(Base):
@@ -51,7 +53,7 @@ class Attendee(Base):
 class Todo(Base):
     __tablename__ = "todos"
 
-    user_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(nullable=False)
     todo_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     meeting_id: Mapped[int] = mapped_column(ForeignKey("meetings.meeting_id", ondelete="CASCADE"))
     owner: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -73,3 +75,17 @@ class Preference(Base):
     user: Mapped["User"] = relationship(back_populates="preferences")
 
     __table_args__ = (UniqueConstraint("user_id", "category", name="uq_user_category"),)
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    conv_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    meeting_id: Mapped[int] = mapped_column(ForeignKey("meetings.meeting_id", ondelete="CASCADE"))
+    role: Mapped[str] = mapped_column(String(20), nullable=False)  # 'user' 或 'assistant'
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    tool_used: Mapped[Optional[str]] = mapped_column(String(50))
+    timestamp: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    # 反向关联
+    meeting: Mapped["Meeting"] = relationship(back_populates="conversations")

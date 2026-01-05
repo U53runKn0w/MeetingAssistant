@@ -108,6 +108,12 @@
               <div class="card-body py-3" v-html="msg.text"></div>
             </div>
 
+            <div v-else-if="msg.type === 'UserQuestion'" class="d-flex justify-content-end mb-3">
+              <div class="bg-primary text-white p-3 rounded-3 shadow-sm" style="max-width: 80%; border-bottom-right-radius: 0 !important;">
+                  {{ msg.text }}
+              </div>
+            </div>
+
             <div v-else class="default-content">
               <strong>{{ msg.type }}:</strong> {{ msg.text }}
             </div>

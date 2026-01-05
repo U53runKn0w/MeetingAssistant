@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from typing import List, Dict, Optional
 from datetime import datetime
 
-from db.models import Base, User, Meeting, Attendee, Todo, Preference
+from db.models import Base, User, Meeting, Attendee, Todo, Preference, Conversation
 
 
 class MeetingDB:
@@ -58,19 +58,19 @@ class MeetingDB:
                 for m in results
             ]
 
-    def get_meeting(self, meeting_id: int, user_id: int) -> Optional[Dict]:
-        with self.SessionLocal() as session:
-            stmt = select(Meeting).where(Meeting.meeting_id == meeting_id, Meeting.user_id == user_id)
-            meeting = session.execute(stmt).scalar_one_or_none()
-            if not meeting:
-                return None
-
-            return {
-                "meeting_id": meeting.meeting_id,
-                "subject": meeting.subject,
-                "attendees": [a.name for a in meeting.attendees],
-                "todos": [{"task": t.task, "owner": t.owner} for t in meeting.todos]
-            }
+    # def get_meeting(self, meeting_id: int, user_id: int) -> Optional[Dict]:
+    #     with self.SessionLocal() as session:
+    #         stmt = select(Meeting).where(Meeting.meeting_id == meeting_id, Meeting.user_id == user_id)
+    #         meeting = session.execute(stmt).scalar_one_or_none()
+    #         if not meeting:
+    #             return None
+    #
+    #         return {
+    #             "meeting_id": meeting.meeting_id,
+    #             "subject": meeting.subject,
+    #             "attendees": [a.name for a in meeting.attendees],
+    #             "todos": [{"task": t.task, "owner": t.owner} for t in meeting.todos]
+    #         }
 
     # --- 待办事项批量操作 ---
     def add_todos(self, user_id: int, meeting_id: int, todos_data: List[Dict]) -> None:
@@ -107,7 +107,7 @@ class MeetingDB:
             stmt = select(Todo).where(Todo.user_id == user_id).order_by(Todo.deadline.desc())
             results = session.execute(stmt).scalars().all()
             return [
-                {"todo_id": t.todo_id, "task": t.task, "deadline": t.deadline, "status": t.status}
+                {"todo_id": t.todo_id, "task": t.task, "deadline": t.deadline, "status": t.status, "owner": t.owner}
                 for t in results
             ]
 
@@ -132,6 +132,45 @@ class MeetingDB:
             stmt = select(Preference).where(Preference.user_id == user_id)
             prefs = session.execute(stmt).scalars().all()
             return {p.category: p.preference for p in prefs}
+
+    def add_conversation(self, meeting_id: int, role: str, content: str, tool_used: str = None) -> int:
+        with self.SessionLocal() as session:
+            conv = Conversation(
+                meeting_id=meeting_id,
+                role=role,
+                content=content,
+                tool_used=tool_used
+            )
+            session.add(conv)
+            session.commit()
+            return conv.conv_id
+
+    # 修改：获取会议详情 (增加 conversations 字段)
+    def get_meeting(self, meeting_id: int, user_id: int) -> Optional[Dict]:
+        with self.SessionLocal() as session:
+            stmt = select(Meeting).where(Meeting.meeting_id == meeting_id, Meeting.user_id == user_id)
+            meeting = session.execute(stmt).scalar_one_or_none()
+            if not meeting:
+                return None
+
+            return {
+                "meeting_id": meeting.meeting_id,
+                "subject": meeting.subject,
+                "start_time": meeting.start_time,
+                "content": meeting.content,
+                "attendees": [a.name for a in meeting.attendees],
+                "todos": [{"task": t.task, "owner": t.owner, "status": t.status, "deadline": t.deadline} for t in
+                          meeting.todos],
+                # 新增：返回对话历史，按时间正序排列（因为是列表，默认顺序通常是插入顺序，保险起见可加 order_by）
+                "conversations": [
+                    {
+                        "role": c.role,
+                        "content": c.content,
+                        "tool_used": c.tool_used
+                    }
+                    for c in meeting.conversations
+                ]
+            }
 
 
 db = MeetingDB()

@@ -1,5 +1,6 @@
 import json
 from contextlib import suppress
+from datetime import datetime
 from typing import List
 from langchain_core.tools import tool
 from langchain_deepseek import ChatDeepSeek
@@ -7,8 +8,7 @@ from pydantic import BaseModel
 from langchain_core.prompts import ChatPromptTemplate
 
 from db.manager import db
-from db.models import Meeting
-from .models import BasicInfo, AgendaConclusion, TodoItem, FollowUp, Preference
+from .models import BasicInfo, AgendaConclusion, TodoItem, FollowUp, Preference, MeetingRecord
 
 shared_llm = ChatDeepSeek(model="deepseek-chat", temperature=0, streaming=True)
 
@@ -159,13 +159,35 @@ def get_user_info(username: str):
     【应用场景】在执行任何个性化操作前（如生成会议总结、规划任务），用于初始化用户上下文背景。
     """
 
-    class UserInfo(BaseModel):
-        preferences: List[Preference]
-        meetings: List[Meeting]
-        todos: List[TodoItem]
+    user_data = db.get_user(username)
+    if not user_data:
+        return "User not found"
 
-    user_id = db.get_user(username).get('user_id')
-    pref = db.get_user_preference_dict(user_id=user_id)
+    user_id = user_data.get('user_id')
+
+    # 1. 获取并处理偏好 (Dict -> List[Dict])
+    pref_dict = db.get_user_preference_dict(user_id=user_id)
+    preferences = [{"category": k, "preference": v} for k, v in pref_dict.items()]
+
+    # 2. 获取并处理会议 (datetime -> str)
     meetings = db.get_user_meetings(user_id=user_id)
+    for m in meetings:
+        if isinstance(m.get('start_time'), datetime):
+            m['start_time'] = m['start_time'].isoformat()
+
+    # 3. 获取并处理待办 (datetime -> str)
     todos = db.get_user_todos(user_id=user_id)
-    return UserInfo(preferences=pref, meetings=meetings, todos=todos)
+    for t in todos:
+        if isinstance(t.get('deadline'), datetime):
+            t['deadline'] = t['deadline'].isoformat()
+        elif t.get('deadline') is None:
+            t['deadline'] = "待确认"
+
+    # 直接返回 JSON 字符串，避免 Pydantic 校验错误
+    return json.dumps({
+        "preferences": preferences,
+        "meetings": meetings,
+        "todos": todos
+    })
+
+

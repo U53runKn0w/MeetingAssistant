@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
@@ -6,8 +7,10 @@ import asyncio
 
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, JWTManager
 
+from action.models import MeetingRecord, BasicInfo, AgendaConclusion, TodoItem, FollowUp
 from agent import create_agent, meeting, create_mindmap_chain, create_pref_agent
 from db.manager import db
+from db.service import MeetingService
 
 app = Flask(__name__)
 CORS(app)  # 允许所有来源跨域
@@ -35,22 +38,54 @@ def login():
 @app.route('/api/chat', methods=['POST'])
 @jwt_required()
 def chat():
-    m = request.json.get('meeting', meeting)
-    if m.strip() == '':
-        m = meeting
-    query = request.json.get('query', '请总结会议内容')
-    if query.strip() == '':
-        query = '请总结会议内容'
+    # m = request.json.get('meeting', meeting)
+    # if m.strip() == '':
+    #     m = meeting
+    # query = request.json.get('query', '请总结会议内容')
+    # if query.strip() == '':
+    #     query = '请总结会议内容'
+    # current_user = get_jwt_identity()
+
+    data = request.json
+    m_text = data.get('meeting', '').strip()
+    query = data.get('query', '请总结会议内容')
+    meeting_id = data.get('meeting_id')
+
     current_user = get_jwt_identity()
+    user_info = db.get_user(current_user)
+    user_id = user_info['user_id']
+
+    # 1. 自动创建会议逻辑 (如果只有文本没有 ID)
+    created_new_meeting = False
+    if not meeting_id and m_text:
+        default_subject = f"会议记录 {datetime.now().strftime('%m-%d %H:%M')}"
+        meeting_id = db.add_meeting(
+            user_id=user_id,
+            subject=default_subject,
+            start_time=datetime.now(),
+            content=m_text
+        )
+        created_new_meeting = True
+
+    # 2. 【关键】保存用户的提问 (Role: user)
+    if meeting_id:
+        db.add_conversation(meeting_id=meeting_id, role='user', content=query)
 
     def generate():
+
+        if created_new_meeting:
+            yield f"data: {json.dumps({'type': 'meeting_created', 'content': {'id': meeting_id, 'title': default_subject}})}\n\n"
+
         agent_executor = create_agent()
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
+        ai_response_accumulator = ""
+
         async def run_agent():
+            nonlocal ai_response_accumulator
             async for event in agent_executor.astream_events(
-                    {"input": query, "meeting": m, "username": current_user},
+                    {"input": query, "meeting": m_text, "username": current_user},
                     version="v2",
             ):
                 kind = event["event"]
@@ -81,6 +116,8 @@ def chat():
         except StopAsyncIteration:
             pass
         finally:
+            if meeting_id and ai_response_accumulator:
+                db.add_conversation(meeting_id=meeting_id, role='assistant', content=ai_response_accumulator)
             loop.close()
 
     return Response(generate(), mimetype='text/event-stream')
@@ -205,6 +242,62 @@ def gen_preference():
             loop.close()
 
     return Response(generate(), mimetype='text/event-stream')
+
+
+@app.route('/api/history', methods=['GET'])
+@jwt_required()
+def get_history():
+    current_user = get_jwt_identity()
+    user_info = db.get_user(current_user)
+    if not user_info:
+        return jsonify({"msg": "User not found"}), 404
+
+    # 调用 db.manager 中的方法获取该用户的会议列表
+    meetings = db.get_user_meetings(user_info['user_id'])
+    return jsonify(meetings), 200
+
+
+@app.route('/api/save_meeting', methods=['POST'])
+@jwt_required()
+def save_meeting():
+    data = request.json
+    current_user = get_jwt_identity()
+    user_id = db.get_user(current_user)['user_id']
+
+    try:
+        # 构建 Pydantic 对象
+        record = MeetingRecord(
+            user_id=user_id,
+            raw_text=data.get('raw_text', ''),
+            basic_info=BasicInfo(**data['extract_meeting_basic_info']),
+            agendas=[AgendaConclusion(**item) for item in data['parse_meeting_agenda_conclusion']],
+            todos=[TodoItem(**item) for item in data['generate_meeting_todo']],
+            follow_ups=[FollowUp(**item) for item in data['mark_meeting_follow_up']]
+        )
+
+        # 调用 Service 保存 (需要初始化 Service)
+        service = MeetingService(db)
+        meeting_id = service.process_meeting_record(record)
+
+        return jsonify({"msg": "保存成功", "meeting_id": meeting_id}), 200
+    except Exception as e:
+        print(e)
+        return jsonify({"msg": f"保存失败: {str(e)}"}), 500
+
+
+@app.route('/api/meetings/<int:meeting_id>', methods=['GET'])
+@jwt_required()
+def get_meeting_detail(meeting_id):
+    current_user = get_jwt_identity()
+    user_info = db.get_user(current_user)
+
+    # 这一步会去查数据库
+    meeting_ = db.get_meeting(meeting_id, user_info['user_id'])
+
+    if not meeting_:
+        return jsonify({"msg": "Meeting not found"}), 404
+
+    return jsonify(meeting_), 200
 
 
 if __name__ == "__main__":

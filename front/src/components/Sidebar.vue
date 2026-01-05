@@ -1,216 +1,318 @@
 <template>
-  <div class="sidebar-wrapper" :class="{ 'is-collapsed': isCollapsed }">
+  <aside class="sidebar-wrapper" :class="{ 'is-collapsed': isCollapsed }">
     <div class="sidebar-header">
       <div class="brand-area" v-show="!isCollapsed">
-        <div class="logo-dot"></div>
+        <div class="brand-icon">
+          <i class="bi bi-robot"></i>
+        </div>
         <span class="brand-title">历史记录</span>
       </div>
 
-      <button class="menu-toggle" @click="isCollapsed = !isCollapsed" :title="isCollapsed ? '展开' : '收起'">
-        <svg v-if="isCollapsed" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-             stroke-width="2">
-          <path d="M4 6h16M4 12h16M4 18h16"/>
-        </svg>
-        <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M11 17l-5-5m0 0l5-5m-5 5h12"/>
-        </svg>
+      <button
+        class="toggle-btn"
+        @click="isCollapsed = !isCollapsed"
+        :title="isCollapsed ? '展开侧边栏' : '收起侧边栏'"
+      >
+        <i class="bi" :class="isCollapsed ? 'bi-layout-sidebar-inset' : 'bi-layout-sidebar'"></i>
       </button>
     </div>
 
-    <div class="sidebar-content">
-      <div class="list-group">
+    <div class="sidebar-content custom-scrollbar">
+      <div v-if="loading" class="text-center py-4" v-show="!isCollapsed">
+        <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+      </div>
+
+      <div v-else-if="history.length === 0" class="empty-state" v-show="!isCollapsed">
+        <i class="bi bi-inbox text-muted"></i>
+        <span class="small text-muted mt-2">暂无会议记录</span>
+      </div>
+
+      <div v-else class="nav-list">
         <div
             v-for="item in history"
             :key="item.id"
             class="nav-item"
-            :class="{ 'centered': isCollapsed }"
+            :class="{ 'active': activeId === item.id }"
+            @click="handleSelectMeeting(item.id)"
         >
-          <div class="nav-icon" v-show="!isCollapsed">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/>
-            </svg>
+          <div class="nav-icon" :title="isCollapsed ? item.title : ''">
+            <i class="bi bi-chat-left-text"></i>
           </div>
+
           <div class="nav-text" v-show="!isCollapsed">
-            <div class="title">{{ item.title }}</div>
-            <div class="date">{{ item.date }}</div>
+            <div class="item-title" :title="item.title">{{ item.title }}</div>
+            <div class="item-meta">
+              <span class="date">{{ item.date }}</span>
+              <i class="bi bi-chevron-right arrow"></i>
+            </div>
           </div>
-          <div class="tooltip" v-if="isCollapsed">{{ item.title }}</div>
         </div>
       </div>
     </div>
 
-    <div class="sidebar-footer" v-show="!isCollapsed">
+    <div class="sidebar-footer">
+      <div class="nav-item" :class="{ 'justify-content-center': isCollapsed }">
+        <div class="nav-icon">
+          <i class="bi bi-gear"></i>
+        </div>
+        <div class="nav-text" v-show="!isCollapsed">
+          <span class="item-title">设置</span>
+        </div>
+      </div>
     </div>
-  </div>
+  </aside>
 </template>
 
 <script setup>
-import {ref} from 'vue';
+import { onMounted, ref } from 'vue';
+import service from "@/js/request.js";
+import { useMeeting } from "@/store/meeting.js";
 
+
+const meetingStore = useMeeting();
 const isCollapsed = ref(false);
+const activeId = ref(null);
+const history = ref([]);
+const loading = ref(false);
 
-// 模拟数据
-const history = ref([
-  {id: 1, title: '关于项目进度的讨论', date: '2024-03-20'},
-  {id: 2, title: '季度预算规划会议', date: '2024-03-19'},
-  {id: 3, title: '技术架构选型评审', date: '2024-03-18'},
-]);
+const handleSelectMeeting = async (id) => {
+    activeId.value = id; // 更新选中状态高亮
+    await meetingStore.loadMeeting(id); // 调用 store 发送请求
+};
+
+const fetchHistory = async () => {
+  loading.value = true;
+  try {
+    // 调用后端接口
+    const res = await service.get('/history');
+
+    // 数据映射与格式化
+    history.value = res.map(m => {
+      const dateObj = new Date(m.start_time);
+      // 格式化日期为 "MM-DD HH:mm" 的简洁格式
+      const formattedDate = `${dateObj.getMonth() + 1}-${dateObj.getDate()} ${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
+
+      return {
+        id: m.meeting_id,
+        title: m.subject || '无主题会议',
+        date: formattedDate
+      };
+    });
+  } catch (e) {
+    console.error("加载历史记录失败:", e);
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(() => {
+  fetchHistory();
+});
 </script>
 
 <style scoped>
+/* 容器基础样式 */
 .sidebar-wrapper {
-  --sb-bg: #f9fafb;
-  --sb-hover: #eceef2;
-  --sb-active: #e2e4e9;
-  --primary: #2563eb;
-  --text-main: #374151;
-  --text-dim: #6b7280;
-
-  width: 260px;
+  width: 280px;
   height: 100vh;
-  background-color: var(--sb-bg);
-  border-right: 1px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.85); /* 略微增加不透明度以适应内容 */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  z-index: 100;
   position: relative;
+  box-shadow: 1px 0 10px rgba(0, 0, 0, 0.02);
 }
 
 .sidebar-wrapper.is-collapsed {
-  width: 64px;
+  width: 80px;
 }
 
-/* Header 融合设计 */
+/* Header */
 .sidebar-header {
-  height: 64px;
+  height: 70px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  padding: 0 20px;
+  margin-bottom: 10px;
 }
 
 .brand-area {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
-.logo-dot {
-  width: 10px;
-  height: 10px;
-  background: var(--primary);
-  border-radius: 2px;
+.brand-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: white;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
 }
 
 .brand-title {
-  font-weight: 600;
-  font-size: 0.95rem;
+  font-weight: 700;
+  font-size: 1rem;
   color: var(--text-main);
+  letter-spacing: -0.5px;
 }
 
-/* 按钮一体化 */
-.menu-toggle {
-  width: 32px;
-  height: 32px;
+/* 切换按钮 */
+.toggle-btn {
   border: none;
   background: transparent;
-  border-radius: 6px;
-  color: var(--text-dim);
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
+  transition: var(--transition);
 }
 
-.sidebar-wrapper.is-collapsed .menu-toggle {
-  margin: 0 auto;
-}
-
-.menu-toggle:hover {
-  background: var(--sb-hover);
+.toggle-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
   color: var(--text-main);
 }
 
-/* 列表项优化 */
-.sidebar-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 8px;
+.sidebar-wrapper.is-collapsed .toggle-btn {
+  margin: 0 auto;
 }
 
+/* 内容列表区 */
+.sidebar-content {
+  flex: 1;
+  padding: 0 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 单个列表项 */
 .nav-item {
   position: relative;
   display: flex;
   align-items: center;
-  padding: 10px;
-  margin-bottom: 4px;
-  border-radius: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   color: var(--text-main);
+  border: 1px solid transparent;
 }
 
 .nav-item:hover {
-  background: var(--sb-hover);
+  background-color: white;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+  transform: translateY(-1px);
 }
 
-.nav-item.centered {
-  justify-content: center;
-  padding: 10px 0;
+.nav-item.active {
+  background-color: rgba(37, 99, 235, 0.08);
+  color: var(--primary);
+  border-color: rgba(37, 99, 235, 0.1);
+}
+
+.nav-item.active .nav-icon {
+  color: var(--primary);
 }
 
 .nav-icon {
+  font-size: 1.1rem;
   min-width: 24px;
   display: flex;
   justify-content: center;
-  color: var(--text-dim);
+  align-items: center;
+  color: var(--text-muted);
+  transition: color 0.2s;
 }
 
+.sidebar-wrapper.is-collapsed .nav-item {
+  justify-content: center;
+  padding: 12px 0;
+}
+
+/* 文本区域 */
 .nav-text {
   margin-left: 12px;
-  overflow: hidden;
+  flex: 1;
+  min-width: 0;
 }
 
-.title {
-  font-size: 0.85rem;
+.item-title {
+  font-size: 0.9rem;
   font-weight: 500;
   white-space: nowrap;
-  text-overflow: ellipsis;
   overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
 }
 
-.date {
+.item-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-size: 0.75rem;
-  color: var(--text-dim);
+  color: var(--text-light);
 }
 
-/* 底部设计 */
+.arrow {
+  opacity: 0;
+  transform: translateX(-5px);
+  transition: all 0.2s;
+}
+
+.nav-item:hover .arrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 0;
+  opacity: 0.6;
+}
+
+/* 底部 */
 .sidebar-footer {
-  padding: 16px;
-  border-top: 1px solid rgba(0, 0, 0, 0.04);
-  font-size: 0.7rem;
-  color: var(--text-dim);
+  padding: 16px 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.03);
 }
 
-/* 简单的 Tooltip 效果 */
-.nav-item:hover .tooltip {
-  display: block;
+/* 滚动条美化 */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
 }
-
-.tooltip {
-  display: none;
-  position: absolute;
-  left: 100%;
-  margin-left: 10px;
-  background: #333;
-  color: white;
-  padding: 4px 8px;
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
   border-radius: 4px;
-  font-size: 12px;
-  white-space: nowrap;
-  z-index: 100;
+}
+.custom-scrollbar:hover::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
 }
 </style>
-

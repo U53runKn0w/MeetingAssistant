@@ -18,9 +18,10 @@ CREATE TABLE IF NOT EXISTS users
 -- ---------------------------------------------------------
 CREATE TABLE IF NOT EXISTS meetings
 (
-    meeting_id INTEGER PRIMARY KEY AUTOINCREMENT,
+meeting_id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id    INTEGER   NOT NULL,
     subject    TEXT      NOT NULL,
+    content    TEXT,      -- [新增] 存储会议原始内容
     start_time TIMESTAMP NOT NULL,
     duration   INTEGER, -- 分钟数
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
