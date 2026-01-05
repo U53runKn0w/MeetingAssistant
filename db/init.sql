@@ -83,26 +83,29 @@ CREATE TABLE IF NOT EXISTS follow_ups
 -- 7. 对话记录表
 -- ---------------------------------------------------------
 -- 1. 对话会话表：存储一次完整对话的背景信息
-CREATE TABLE sessions (
-    session_id TEXT PRIMARY KEY,       -- 唯一会话ID (建议使用 UUID 或 时间戳)
-    user_id TEXT NOT NULL,             -- 用户标识，如 "zhangsan"
-    title TEXT,                        -- 对话标题，可由模型自动生成或记录第一句话
+CREATE TABLE chat_sessions
+(
+    session_id TEXT PRIMARY KEY, -- 唯一会话ID (建议使用 UUID 或 时间戳)
+    user_id    TEXT NOT NULL,    -- 用户标识，如 "zhangsan"
+    query      TEXT,             -- 对话标题，可由模型自动生成或记录第一句话
+    meeting    TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 2. 对话步骤明细表：存储 ReAct 的每一个环节
-CREATE TABLE dialog_steps (
-    step_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id TEXT NOT NULL,          -- 关联 sessions 表
-    sequence_order INTEGER NOT NULL,   -- 步骤顺序 (0, 1, 2...)
-    type TEXT NOT NULL,                -- 类型：Thought, Action, Action Input, Observation, Final Answer
-    content TEXT,                      -- 具体文本内容
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+CREATE TABLE dialog_steps
+(
+    step_id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id     TEXT    NOT NULL, -- 关联 sessions 表
+    sequence_order INTEGER NOT NULL, -- 步骤顺序 (0, 1, 2...)
+    type           TEXT    NOT NULL, -- 类型：Thought, Action, Action Input, Observation, Final Answer
+    content        TEXT,             -- 具体文本内容
+    created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (session_id) REFERENCES chat_sessions (session_id)
 );
 
 -- 为常用查询字段创建索引，提升检索速度
-CREATE INDEX idx_session_order ON dialog_steps(session_id, sequence_order);
+CREATE INDEX idx_session_order ON dialog_steps (session_id, sequence_order);
 
 -- ---------------------------------------------------------
 -- 8. 偏好设置表

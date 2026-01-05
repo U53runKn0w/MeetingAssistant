@@ -1,5 +1,3 @@
-import uuid
-
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 
@@ -43,7 +41,7 @@ def chat():
         query = '请总结会议内容'
     if not session_id:
         user_id = db.get_user_id(username)
-        session_id = db.create_chat_session(user_id, query)
+        session_id = db.create_chat_session(user_id, query, m)
     else:
         # 拉取聊天记录
         pass

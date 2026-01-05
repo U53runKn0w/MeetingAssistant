@@ -81,7 +81,8 @@ class ChatSession(Base):
     # 使用 Mapped 风格定义
     session_id: Mapped[str] = mapped_column(String(64), primary_key=True)  # 通常存储 UUID 字符串
     user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
-    title: Mapped[Optional[str]] = mapped_column(String(255))
+    query: Mapped[Optional[str]] = mapped_column(String(255))
+    meeting: Mapped[Optional[str]] = mapped_column(String())
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     # 关系映射：显式定义 back_populates 以获得更好的 IDE 支持

@@ -90,10 +90,12 @@ import {useChat} from "@/store/chat.js";
 import {useSession} from "@/store/session.js";
 import {storeToRefs} from "pinia";
 import ConfirmModal from "@/components/ConfirmModal.vue";
+import {useMeeting} from "@/store/meeting.js";
 
 const isCollapsed = ref(false);
 const session = useSession();
 const chat = useChat()
+const meeting=useMeeting();
 const {sessionId, history} = storeToRefs(session);
 const loading = ref(false);
 
@@ -121,6 +123,7 @@ const selectSession = async (item) => {
     })
 
     chat.question = item.title;
+    meeting.text = item.meeting;
 
     if (chat.messages.length > 0 && chat.question.length > 0) {
       chat.buttonsShow = true;
@@ -255,7 +258,7 @@ const handleDelete = async () => {
 /* Content & List */
 .sidebar-content {
   flex: 1;
-  overflow-y: overlay; /* 现代浏览器平滑滚动 */
+  /*overflow-y: overlay; !* 现代浏览器平滑滚动 *!*/
   padding: 8px 12px;
 }
 

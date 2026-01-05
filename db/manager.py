@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from typing import List, Dict, Optional
 from datetime import datetime, timezone
 
+from config import meeting
 from db.models import Base, User, Meeting, Attendee, Todo, Preference, ChatSession, ChatStep
 
 
@@ -148,7 +149,8 @@ class MeetingDB:
             return [
                 {
                     "session_id": s.session_id,
-                    "title": s.title or "新对话",
+                    "title": s.query or "新对话",
+                    "meeting": s.meeting or meeting,
                     "created_at": s.created_at.isoformat()
                 } for s in results
             ]
@@ -164,11 +166,11 @@ class MeetingDB:
             ]
             return steps
 
-    def create_chat_session(self, user_id: int, title: str) -> str:
+    def create_chat_session(self, user_id: int, query: str, meeting: str) -> str:
         """创建一个新的会话并返回 ID"""
         new_id = str(uuid.uuid4())
         with self.SessionLocal() as session:
-            chat_session = ChatSession(session_id=new_id, user_id=user_id, title=title,
+            chat_session = ChatSession(session_id=new_id, user_id=user_id, query=query, meeting=meeting,
                                        created_at=datetime.now(ZoneInfo("Asia/Shanghai")))
             session.add(chat_session)
             session.commit()
