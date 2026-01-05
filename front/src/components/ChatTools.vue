@@ -55,7 +55,6 @@ import {onMounted, ref} from "vue";
 import mermaid from 'mermaid';
 import router from "@/router/index.js";
 import {storeToRefs} from "pinia";
-import {useMeeting} from "@/store/meeting.js";
 import {useChat} from "@/store/chat.js";
 import {fetchEventSource} from "@microsoft/fetch-event-source";
 import {createHeaders} from "@/js/util.js";
@@ -65,10 +64,9 @@ const showMindMapModal = ref(false);
 const isMindMapLoading = ref(false);
 const mindMapData = ref("");
 const mermaidContainer = ref(null);
-const meeting = useMeeting();
 const chat = useChat();
-const {buttonsShow: buttonsShow} = storeToRefs(chat);
-const {error: error} = storeToRefs(meeting)
+const {buttonsShow} = storeToRefs(chat);
+const {error} = storeToRefs(chat)
 
 onMounted(() => {
   if (chat.messages.length > 0 && chat.question.length > 0) {

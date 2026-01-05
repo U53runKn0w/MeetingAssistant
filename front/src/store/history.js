@@ -1,8 +1,7 @@
 import {defineStore} from "pinia";
 
-export const useSession = defineStore('session', {
+export const useHistory = defineStore('history', {
     state: () => ({
-        sessionId: '',
         history: []
     }),
     actions: {},

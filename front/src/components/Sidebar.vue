@@ -87,16 +87,13 @@
 import {onMounted, ref} from 'vue';
 import service from "@/js/request.js";
 import {useChat} from "@/store/chat.js";
-import {useSession} from "@/store/session.js";
 import {storeToRefs} from "pinia";
 import ConfirmModal from "@/components/ConfirmModal.vue";
-import {useMeeting} from "@/store/meeting.js";
 
 const isCollapsed = ref(false);
-const session = useSession();
 const chat = useChat()
-const meeting=useMeeting();
-const {sessionId, history} = storeToRefs(session);
+const history = ref([])
+const {sessionId} = storeToRefs(chat);
 const loading = ref(false);
 
 const fetchHistory = async () => {
@@ -123,7 +120,7 @@ const selectSession = async (item) => {
     })
 
     chat.question = item.title;
-    meeting.text = item.meeting;
+    chat.text = item.meeting;
 
     if (chat.messages.length > 0 && chat.question.length > 0) {
       chat.buttonsShow = true;

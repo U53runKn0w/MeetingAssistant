@@ -53,10 +53,10 @@
 import {dummyMeeting} from "@/js/etc.js";
 import {ref} from "vue";
 import {storeToRefs} from "pinia";
-import {useMeeting} from "@/store/meeting.js";
+import {useChat} from "@/store/chat.js";
 
-const meeting = useMeeting();
-const {text: meetingText} = storeToRefs(meeting);
+const chat = useChat();
+const {text: meetingText} = storeToRefs(chat);
 const isUploading = ref(false);
 const error = ref(null);
 

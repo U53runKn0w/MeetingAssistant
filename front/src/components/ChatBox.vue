@@ -155,8 +155,6 @@ import {createHeaders, parseReActContent} from "@/js/util.js";
 import {useChat} from "@/store/chat.js";
 import {storeToRefs} from "pinia";
 import {nextTick, onMounted, ref, watch} from "vue";
-import {useMeeting} from "@/store/meeting.js";
-import {useSession} from "@/store/session.js";
 
 
 const productUrl = 'http://localhost:5000/api/chat';
@@ -164,10 +162,8 @@ const testUrl = 'http://localhost:5000/api/chat/test';
 let url;
 
 const chat = useChat();
-const meeting = useMeeting();
-const session = useSession();
 const {question: userQuery} = storeToRefs(chat)
-const {error: error} = storeToRefs(meeting)
+const {error: error} = storeToRefs(chat)
 const {messages: messages} = storeToRefs(chat)
 
 const isGenerating = ref(false);
@@ -230,7 +226,7 @@ const sendMessage = async () => {
 
         switch (data.type) {
           case 'meta':
-            session.sessionId = data.content;
+            chat.sessionId = data.content;
             break;
 
           case 'observation':
