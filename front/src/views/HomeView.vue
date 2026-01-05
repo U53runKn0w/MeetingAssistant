@@ -1,6 +1,6 @@
 <template>
   <div class="d-flex min-vh-100">
-    <Sidebar />
+    <History />
 
     <div class="flex-grow-1 overflow-auto">
       <div class="container mt-5 mb-5">
@@ -26,7 +26,7 @@ import MyInfo from "@/components/MyInfo.vue";
 import MeetingInput from "@/components/MeetingInput.vue";
 import ChatBox from "@/components/ChatBox.vue";
 import ChatTools from "@/components/ChatTools.vue";
-import Sidebar from "@/components/Sidebar.vue";
+import History from "@/components/History.vue";
 </script>
 
 <style scoped></style>

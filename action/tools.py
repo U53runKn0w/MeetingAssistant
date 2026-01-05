@@ -119,17 +119,20 @@ def mark_meeting_follow_up(text: str) -> List[dict]:
 
 
 @tool
-def generate_user_preferences(text: str, user_id: int) -> List[dict]:
+def generate_user_preferences(param: str) -> List[dict]:
     """
     【适用场景】当用户明确提出对总结格式、称呼方式、关注重点有特殊要求时，将其持久化到数据库。
     【调用时机】用户说“以后请叫我X总”、“总结里多关注技术细节”或“我不需要表格”等个性化指令时。
-    【参数要求】text 为用户的原始要求短语，user_id 必须为整数。
+    【参数要求】text为用户的原始要求短语，username为用户名。
     【副作用】此操作会直接修改数据库，请在确认用户意图后调用。
     """
 
     class PreferenceList(BaseModel):
         preferences: List[Preference]
 
+    param = json.loads(param)
+    username = param["username"]
+    text = param["text"]
     structured_llm = shared_llm.with_structured_output(PreferenceList)
     prompt_analyze_preference = ChatPromptTemplate.from_messages([
         ("system", """你是一个资深用户体验设计师。你的目标是将非结构化的用户要求转化为标准偏好：
@@ -142,6 +145,7 @@ def generate_user_preferences(text: str, user_id: int) -> List[dict]:
         ("user", "{text}")
     ])
     chain = prompt_analyze_preference | structured_llm
+    user_id = db.get_user_id(username.strip())
     existing_prefs = db.get_user_preference_dict(user_id=user_id)
     result = chain.invoke({"text": text, "existing_prefs": existing_prefs})
     result_return = [result.model_dump() for result in result.preferences]

@@ -74,12 +74,12 @@ def gen_mindmap():
 @app.route('/api/preference', methods=['POST'])
 @jwt_required()
 def gen_preference():
-    c = request.json.get('query')
-    if c is None:
+    query = request.json.get('query')
+    if query is None:
         return Response("请输入文本", mimetype='text/event-stream'), 500
     current_user = get_jwt_identity()
     chain = create_pref_agent()
-    return Response(generate_answer(chain, {"query": c, "username": current_user}), mimetype='text/event-stream')
+    return Response(generate_answer(chain, {"input": query, "username": current_user}), mimetype='text/event-stream')
 
 
 @app.route('/api/history', methods=['GET'])

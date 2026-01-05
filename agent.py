@@ -62,11 +62,7 @@ def create_pref_agent(callbacks=None):
         stop_sequences=["\nObservation:"],
     )
 
-    tools = [extract_meeting_basic_info,
-             parse_meeting_agenda_conclusion,
-             generate_meeting_todo,
-             mark_meeting_follow_up,
-             generate_user_preferences]
+    tools = [generate_user_preferences]
 
     prompt = PromptTemplate.from_template(template_perference)
 

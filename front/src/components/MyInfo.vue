@@ -107,6 +107,25 @@
                 <div class="pref-value">{{ item.value }}</div>
               </template>
             </div>
+            <div v-if="activeType === 'preference'" class="text-center mt-4">
+              <button class="btn btn-outline-success rounded-pill px-4" @click="openSubModal">
+                <i class="bi bi-gear-fill me-1"></i> 生成偏好
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <Transition name="fade">
+      <div v-if="isSubModalOpen" class="glass-overlay sub-modal-overlay" @click.self="isSubModalOpen = false">
+        <div class="glass-modal animate__animated animate__zoomIn">
+          <div class="modal-header-custom">
+            <h5 class="fw-bold mb-0">生成偏好</h5>
+            <button class="close-pill" @click="isSubModalOpen = false">返回</button>
+          </div>
+          <div class="modal-body-custom">
+            <PreferenceGenerator></PreferenceGenerator>
           </div>
         </div>
       </div>
@@ -117,6 +136,7 @@
 <script setup>
 import {ref, onMounted, computed} from "vue";
 import service from "@/js/request.js";
+import PreferenceGenerator from "@/components/PreferenceGenerator.vue";
 
 const myData = ref({
   todos: [],
@@ -129,7 +149,7 @@ const isModalOpen = ref(false);
 const activeType = ref(''); // 'todo', 'meeting', 'preference'
 
 const getIcon = (type) => {
-  const icons = { meeting: 'bi-calendar-event', todo: 'bi-check2-square', preference: 'bi-sliders' };
+  const icons = {meeting: 'bi-calendar-event', todo: 'bi-check2-square', preference: 'bi-sliders'};
   return icons[type];
 };
 
@@ -194,6 +214,19 @@ const fetchData = async () => {
 onMounted(() => {
   fetchData();
 });
+
+const isSubModalOpen = ref(false); // 控制第二个模态框
+
+// 打开第二个模态框的方法
+const openSubModal = () => {
+  isSubModalOpen.value = true;
+};
+
+// 如果你想在关闭主模态框时，同时关闭子模态框，可以修改之前的关闭逻辑
+const closeMainModal = () => {
+  isModalOpen.value = false;
+  isSubModalOpen.value = false;
+};
 </script>
 
 <style scoped>
@@ -255,22 +288,29 @@ onMounted(() => {
 /* 1. 毛玻璃背景遮罩 */
 .glass-overlay {
   position: fixed;
-  top: 0; left: 0; width: 100%; height: 100%;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   z-index: 2000;
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* 2. 悬浮窗主体 */
 .glass-modal {
   background: white;
-  width: 90%; max-width: 650px;
+  width: 90%;
+  max-width: 650px;
   max-height: 80vh;
   border-radius: 24px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
-  display: flex; flex-direction: column;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border: 1px solid rgba(0, 0, 0, 0.05);
 }
@@ -279,18 +319,36 @@ onMounted(() => {
 .modal-header-custom {
   padding: 24px 30px;
   border-bottom: 1px solid #f1f1f1;
-  display: flex; justify-content: space-between; align-items: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .icon-box {
-  width: 48px; height: 48px;
+  width: 48px;
+  height: 48px;
   border-radius: 12px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.5rem; margin-right: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  margin-right: 15px;
 }
-.icon-box.meeting { background: #e0f7fa; color: #00acc1; }
-.icon-box.todo { background: #e8eaf6; color: #3f51b5; }
-.icon-box.preference { background: #e8f5e9; color: #43a047; }
+
+.icon-box.meeting {
+  background: #e0f7fa;
+  color: #00acc1;
+}
+
+.icon-box.todo {
+  background: #e8eaf6;
+  color: #3f51b5;
+}
+
+.icon-box.preference {
+  background: #e8f5e9;
+  color: #43a047;
+}
 
 /* 4. 内容列表卡片化 */
 .modal-body-custom {
@@ -304,44 +362,105 @@ onMounted(() => {
   border-radius: 16px;
   padding: 16px 20px;
   margin-bottom: 12px;
-  display: flex; align-items: center;
+  display: flex;
+  align-items: center;
   transition: all 0.2s ease;
   border: 1px solid transparent;
 }
+
 .detail-item-card:hover {
   transform: scale(1.02);
   border-color: #eee;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 /* 状态条装饰 */
 .status-indicator {
-  width: 4px; height: 30px; border-radius: 2px; margin-right: 15px;
+  width: 4px;
+  height: 30px;
+  border-radius: 2px;
+  margin-right: 15px;
 }
-.status-indicator.pending { background: #ffb300; }
-.status-indicator.completed { background: #4caf50; }
-.status-indicator.meeting { background: #00acc1; }
+
+.status-indicator.pending {
+  background: #ffb300;
+}
+
+.status-indicator.completed {
+  background: #4caf50;
+}
+
+.status-indicator.meeting {
+  background: #00acc1;
+}
 
 /* 5. 按钮与标签 */
 .close-pill {
-  border: none; background: #f5f5f5; padding: 8px 16px;
-  border-radius: 20px; font-weight: 600; font-size: 0.9rem;
+  border: none;
+  background: #f5f5f5;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.9rem;
   transition: background 0.2s;
 }
-.close-pill:hover { background: #eeeeee; }
+
+.close-pill:hover {
+  background: #eeeeee;
+}
 
 .badge-pill {
-  padding: 4px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: bold;
   text-transform: uppercase;
 }
-.badge-pill.pending { background: #fff8e1; color: #ff8f00; }
-.badge-pill.completed { background: #e8f5e9; color: #2e7d32; }
+
+.badge-pill.pending {
+  background: #fff8e1;
+  color: #ff8f00;
+}
+
+.badge-pill.completed {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
 
 /* 偏好独有样式 */
-.pref-label { font-weight: bold; color: #666; width: 40%; }
-.pref-value { color: #333; font-weight: 500; }
+.pref-label {
+  font-weight: bold;
+  color: #666;
+  width: 40%;
+}
+
+.pref-value {
+  color: #333;
+  font-weight: 500;
+}
 
 /* Vue 过渡动画 */
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+}
+
+.sub-modal-overlay {
+  z-index: 2100; /* 比第一个模态框的 2000 更高 */
+  background: rgba(0, 0, 0, 0.2); /* 稍微深一点的遮罩感 */
+}
+
+/* 让第二个模态框小一点，体现层级感 */
+.sub-modal-overlay .glass-modal {
+  max-width: 450px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* 进场动画：使用缩放效果区分 */
+.animate__zoomIn {
+  animation-duration: 0.3s;
+}
 </style>
