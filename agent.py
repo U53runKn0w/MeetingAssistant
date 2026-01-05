@@ -62,7 +62,8 @@ def create_pref_agent(callbacks=None):
         stop_sequences=["\nObservation:"],
     )
 
-    tools = [generate_user_preferences]
+    tools = [get_user_info,
+             generate_user_preferences]
 
     prompt = PromptTemplate.from_template(template_perference)
 
