@@ -8,7 +8,7 @@ from typing import List, Dict, Optional
 from datetime import datetime, timezone
 
 from config import meeting
-from db.models import Base, User, Meeting, Attendee, Todo, Preference, ChatSession, ChatStep
+from db.models import Base, User, Meeting, Attendee, Todo, Preference, ChatSession, DialogStep
 
 
 class MeetingDB:
@@ -189,7 +189,7 @@ class MeetingDB:
     def get_chat_detail(self, session_id: str) -> List[Dict]:
         """获取某个对话的完整 ReAct 过程"""
         with (self.SessionLocal() as session):
-            stmt = select(ChatStep).where(ChatStep.session_id == session_id).order_by(ChatStep.sequence_order.asc())
+            stmt = select(DialogStep).where(DialogStep.session_id == session_id).order_by(DialogStep.sequence_order.asc())
             results = session.execute(stmt).scalars().all()
             steps = [
                 {"type": step.type, "text": step.content}
@@ -216,7 +216,7 @@ class MeetingDB:
         with self.SessionLocal() as session:
             for idx, item in enumerate(steps_data):
                 # 将前端/模型输出的 'text' 映射到数据库的 'content'
-                step = ChatStep(
+                step = DialogStep(
                     session_id=session_id,
                     sequence_order=idx,
                     type=item.get('type'),

@@ -86,11 +86,11 @@ class ChatSession(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     # 关系映射：显式定义 back_populates 以获得更好的 IDE 支持
-    steps: Mapped[List["ChatStep"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+    steps: Mapped[List["DialogStep"]] = relationship(back_populates="session", cascade="all, delete-orphan")
 
 
-class ChatStep(Base):
-    __tablename__ = "chat_steps"
+class DialogStep(Base):
+    __tablename__ = "dialog_steps"
 
     step_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     session_id: Mapped[str] = mapped_column(ForeignKey("chat_sessions.session_id", ondelete="CASCADE"), nullable=False)
