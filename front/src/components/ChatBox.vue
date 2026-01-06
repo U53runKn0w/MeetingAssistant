@@ -83,9 +83,34 @@
             ref="chatContainer"
             @scroll.passive="handleScroll"
         >
-          <div v-if="messages.length === 0" class="text-center text-muted mt-5">
-            <i class="bi bi-robot display-4"></i>
-            <p class="mt-2">准备就绪，请在下方输入关于会议的问题。</p>
+          <div v-if="messages.length === 0" class="empty-state-container">
+            <div class="empty-state-content">
+              <div class="robot-icon-wrapper">
+                <i class="bi bi-robot"></i>
+              </div>
+              <h4 class="empty-state-title">智能会议分析助手</h4>
+              <p class="empty-state-subtitle">准备就绪，请在下方输入关于会议的问题</p>
+
+              <div class="quick-questions-wrapper">
+                <div class="quick-questions-header">
+                  <i class="bi bi-lightbulb-fill"></i>
+                  <span>常用问题</span>
+                </div>
+                <div class="quick-questions-grid">
+                  <button
+                      v-for="(question, index) in commonQuestions"
+                      :key="index"
+                      class="quick-question-card"
+                      @click="quickSend(question)"
+                      :disabled="isGenerating"
+                  >
+                    <i class="bi bi-chat-quote-fill card-icon"></i>
+                    <span>{{ question }}</span>
+                    <i class="bi bi-arrow-right-circle-fill arrow-icon"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div v-for="(msg, i) in messages" :key="i"
@@ -187,6 +212,22 @@ const isFullScreen = ref(false);
 const fullChatContainer = ref(null);
 const isTest = ref(false);
 const abortController = ref(null);
+
+// 常用问题列表
+const commonQuestions = ref([
+  '总结会议的待办事项',
+  '提取会议的关键决策',
+  '分析会议的主要议题',
+  '列出会议参与者及其观点',
+  '生成会议摘要'
+]);
+
+// 快速发送常用问题
+const quickSend = (question) => {
+  if (isGenerating.value) return;
+  userQuery.value = question;
+  sendMessage();
+};
 
 // 自动跟随滚动状态
 const autoScroll = ref(true);
@@ -439,10 +480,183 @@ watch(fullChatContainer, (newVal) => {
 
 <style scoped>
 .chat-box {
-  background-color: #f8f9fa;
-  border-radius: 8px;
-  border: 1px solid #dee2e6;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf3 100%);
+  border-radius: 12px;
+  border: none;
   height: 360px;
+  position: relative;
+}
+
+/* 空状态容器 */
+.empty-state-container {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  height: 100%;
+  padding: 30px 20px;
+  overflow-y: auto;
+}
+
+.empty-state-content {
+  text-align: center;
+  max-width: 600px;
+  animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 机器人图标包装器 */
+.robot-icon-wrapper {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.robot-icon-wrapper i {
+  font-size: 2.5rem;
+  color: white;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 12px 28px rgba(102, 126, 234, 0.4);
+  }
+}
+
+/* 空状态标题 */
+.empty-state-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 8px;
+}
+
+.empty-state-subtitle {
+  color: #7f8c8d;
+  font-size: 1rem;
+  margin-bottom: 30px;
+}
+
+/* 快速问题区域 */
+.quick-questions-wrapper {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.quick-questions-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #667eea;
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 20px;
+}
+
+.quick-questions-header i {
+  font-size: 1.1rem;
+}
+
+/* 快速问题网格 */
+.quick-questions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+/* 快速问题卡片 */
+.quick-question-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+  border: 2px solid #e8ecf3;
+  border-radius: 12px;
+  color: #2c3e50;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.quick-question-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.quick-question-card:hover:not(:disabled)::before {
+  left: 100%;
+}
+
+.quick-question-card:hover:not(:disabled) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+  color: white;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.35);
+}
+
+.quick-question-card .card-icon {
+  font-size: 1.2rem;
+  color: #667eea;
+  transition: color 0.3s ease;
+}
+
+.quick-question-card:hover:not(:disabled) .card-icon {
+  color: white;
+}
+
+.quick-question-card .arrow-icon {
+  font-size: 1.1rem;
+  color: #bdc3c7;
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: all 0.3s ease;
+}
+
+.quick-question-card:hover:not(:disabled) .arrow-icon {
+  opacity: 1;
+  transform: translateX(0);
+  color: white;
+}
+
+.quick-question-card:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #f8f9fa;
 }
 
 .message-block {
@@ -501,5 +715,29 @@ summary {
   max-width: 100%;
   height: auto;
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .quick-questions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .robot-icon-wrapper {
+    width: 60px;
+    height: 60px;
+  }
+
+  .robot-icon-wrapper i {
+    font-size: 2rem;
+  }
+
+  .empty-state-title {
+    font-size: 1.25rem;
+  }
+
+  .quick-questions-wrapper {
+    padding: 18px;
+  }
 }
 </style>
