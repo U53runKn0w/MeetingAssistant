@@ -25,7 +25,8 @@
         </button>
       </div>
 
-      <button class="menu-toggle" v-show="isCollapsed" @click="isCollapsed = !isCollapsed" :title="isCollapsed ? '展开' : '收起'">
+      <button class="menu-toggle" v-show="isCollapsed" @click="isCollapsed = !isCollapsed"
+              :title="isCollapsed ? '展开' : '收起'">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5">
           <path d="M4 6h16M4 12h16M4 18h16"/>
         </svg>
@@ -92,7 +93,67 @@
         <span class="dot"></span>
         共 {{ history.length }} 条记录
       </div>
+      <button
+          class="settings-btn"
+          @click="openSettingsModal"
+          title="设置"
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <path
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+          <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+      </button>
     </div>
+
+    <ConfirmModal
+        v-model="isSettingsVisible"
+        title="思维导图设置"
+        :loading="isSaving"
+        confirm-text="保存"
+        type="primary"
+        @confirm="saveSettings"
+    >
+      <div class="settings-form">
+        <div class="form-group">
+          <label class="form-label">主题样式</label>
+          <select v-model="settings.theme" class="form-input">
+            <option value="default">默认</option>
+            <option value="forest">森林</option>
+            <option value="dark">暗色</option>
+            <option value="neutral">中性</option>
+          </select>
+          <small class="form-hint">选择思维导图的配色主题</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">渲染间隔（毫秒）</label>
+          <input
+              type="number"
+              v-model.number="settings.renderInterval"
+              class="form-input"
+              placeholder="请输入渲染间隔"
+              min="100"
+              step="100"
+          />
+          <small class="form-hint">思维导图刷新渲染的时间间隔</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">显示设置</label>
+          <div class="toggle-group">
+            <label class="toggle-label">
+              <input type="checkbox" v-model="settings.autoRender"/>
+              <span>自动渲染导图</span>
+            </label>
+            <label class="toggle-label">
+              <input type="checkbox" v-model="settings.showSourceCode"/>
+              <span>显示源代码</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </ConfirmModal>
   </div>
 </template>
 
@@ -111,54 +172,16 @@ const {sessionId} = storeToRefs(chat);
 const loading = ref(false);
 const messageStore = useMessageStore();
 
-const emit = defineEmits(['new-session', 'select-session']);
-
-const fetchHistory = async () => {
-  loading.value = true;
-  service.get('/history').then((data) => {
-    history.value = data;
-  }).catch((error) => {
-    messageStore.setNetworkError('failed');
-    console.error("获取历史记录失败：", error.response?.data || error.message);
-  }).finally(() => {
-    loading.value = false;
-  });
-};
-
-
-
-const newSession = () => {
-  // 通知父组件新建会话
-  emit('new-session');
-};
-
-const selectSession = async (item) => {
-  sessionId.value = item.session_id;
-
-  // 通知父组件停止正在进行的生成
-  emit('select-session');
-
-  service.get(`/history/${item.session_id}`).then((data) => {
-    chat.messages = []
-    data.forEach((item) => {
-      chat.messages.push({
-        "type": item.type,
-        "text": item.text,
-      });
-    })
-
-    chat.question = item.title;
-    chat.text = item.meeting;
-
-    if (chat.messages.length > 0 && chat.question.length > 0) {
-      chat.buttonsShow = true;
-    }
-
-  }).catch((error) => {
-    messageStore.setNetworkError('failed');
-    console.error('加载会话详情失败:', error);
-  });
-};
+const emit = defineEmits(['new-session', 'select-session', 'settings-changed']);
+loading.value = true;
+service.get('/history').then((data) => {
+  history.value = data;
+}).catch((error) => {
+  messageStore.setNetworkError('failed');
+  console.error("获取历史记录失败：", error.response?.data || error.message);
+}).finally(() => {
+  loading.value = false;
+});
 
 
 onMounted(() => {
@@ -206,6 +229,96 @@ const handleDelete = async () => {
     isDeleting.value = false;
   }
 };
+
+// 设置相关
+const isSettingsVisible = ref(false);
+const isSaving = ref(false);
+const settings = ref({
+  theme: 'forest',
+  renderInterval: 500,
+  autoRender: true,
+  showSourceCode: false
+});
+
+const openSettingsModal = () => {
+  isSettingsVisible.value = true;
+};
+
+const saveSettings = async () => {
+  isSaving.value = true;
+  try {
+    localStorage.setItem('mindmapSettings', JSON.stringify(settings.value));
+    messageStore.setSuccess('思维导图设置已保存');
+    emit('settings-changed', settings.value);
+    isSettingsVisible.value = false;
+  } catch (error) {
+    messageStore.setClientError('badRequest');
+    console.error('保存设置失败:', error);
+  } finally {
+    isSaving.value = false;
+  }
+};
+
+// 从 localStorage 加载设置
+const fetchHistory = async () => {
+  loading.value = true;
+  service.get('/history').then((data) => {
+    history.value = data;
+  }).catch((error) => {
+    messageStore.setNetworkError('failed');
+    console.error("获取历史记录失败：", error.response?.data || error.message);
+  }).finally(() => {
+    loading.value = false;
+  });
+};
+
+
+const newSession = () => {
+  // 通知父组件新建会话
+  emit('new-session');
+};
+
+const selectSession = async (item) => {
+  sessionId.value = item.session_id;
+
+  // 通知父组件停止正在进行的生成
+  emit('select-session');
+
+  service.get(`/history/${item.session_id}`).then((data) => {
+    chat.messages = []
+    data.forEach((item) => {
+      chat.messages.push({
+        "type": item.type,
+        "text": item.text,
+      });
+    })
+
+    chat.question = item.title;
+    chat.text = item.meeting;
+
+    if (chat.messages.length > 0 && chat.question.length > 0) {
+      chat.buttonsShow = true;
+    }
+
+  }).catch((error) => {
+    messageStore.setNetworkError('failed');
+    console.error('加载会话详情失败:', error);
+  });
+};
+
+
+onMounted(() => {
+  fetchHistory();
+  const savedSettings = localStorage.getItem('mindmapSettings');
+  if (savedSettings) {
+    try {
+      const parsed = JSON.parse(savedSettings);
+      settings.value = {...settings.value, ...parsed};
+    } catch (error) {
+      console.error('加载设置失败:', error);
+    }
+  }
+});
 
 // 暴露 fetchHistory 方法供父组件调用
 defineExpose({
@@ -544,6 +657,122 @@ defineExpose({
   padding-right: 24px;
 }
 
+/* Footer Settings Button */
+.sidebar-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.stats .dot {
+  width: 6px;
+  height: 6px;
+  background: #10b981;
+  border-radius: 50%;
+}
+
+.settings-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.settings-btn:hover {
+  background: var(--sb-hover);
+  color: var(--primary);
+}
+
+/* Settings Form */
+.settings-form {
+  text-align: left;
+  margin-top: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-hint {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+
+/* Toggle Group */
+.toggle-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  cursor: pointer;
+  user-select: none;
+  padding: 6px 0;
+}
+
+.toggle-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.toggle-label span {
+  line-height: 1.5;
+}
 
 </style>
 

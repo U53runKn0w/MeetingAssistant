@@ -68,9 +68,14 @@
                 <p class="text-muted mb-0 small">{{ modalSubtitle }}</p>
               </div>
             </div>
-            <button class="close-pill" @click="isModalOpen = false">
-              <i class="bi bi-x"></i> 关闭
-            </button>
+            <div class="header-actions">
+              <button v-if="activeType === 'todo'" class="settings-btn-custom" @click="openSettingsModal" title="设置">
+                <i class="bi bi-gear-fill"></i>
+              </button>
+              <button class="close-pill" @click="isModalOpen = false">
+                <i class="bi bi-x"></i> 关闭
+              </button>
+            </div>
           </div>
 
           <div class="modal-body-custom">
@@ -130,6 +135,12 @@
         </div>
       </div>
     </Transition>
+
+    <Transition name="fade">
+      <div v-if="isSettingsVisible" class="glass-overlay sub-modal-overlay" @click.self="isSettingsVisible = false">
+        <TodoSettings v-model="isSettingsVisible" :settings="settings" @save="handleSettingsSave"></TodoSettings>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -137,6 +148,7 @@
 import {ref, onMounted, computed} from "vue";
 import service from "@/js/request.js";
 import PreferenceGenerator from "@/components/PreferenceGenerator.vue";
+import TodoSettings from "@/components/TodoSettings.vue";
 import {useMessageStore} from "@/store/error.js";
 
 const myData = ref({
@@ -149,6 +161,25 @@ const myData = ref({
 const messageStore = useMessageStore();
 const isModalOpen = ref(false);
 const activeType = ref(''); // 'todo', 'meeting', 'preference'
+
+// 设置相关
+const isSettingsVisible = ref(false);
+const settings = ref({
+  reminderTime: 30,
+  urgentTimeRange: 60,
+  refreshInterval: 60,
+  showUrgentOnly: false,
+  enableSound: false,
+  autoOpenReminder: true
+});
+
+const openSettingsModal = () => {
+  isSettingsVisible.value = true;
+};
+
+const handleSettingsSave = (newSettings) => {
+  settings.value = {...settings.value, ...newSettings};
+};
 
 const getIcon = (type) => {
   const icons = {meeting: 'bi-calendar-event', todo: 'bi-check2-square', preference: 'bi-sliders'};
@@ -219,6 +250,15 @@ const fetchData = async () => {
 
 onMounted(() => {
   fetchData();
+  const savedSettings = localStorage.getItem('todoSettings');
+  if (savedSettings) {
+    try {
+      const parsed = JSON.parse(savedSettings);
+      settings.value = {...settings.value, ...parsed};
+    } catch (error) {
+      console.error('加载设置失败:', error);
+    }
+  }
 });
 
 const isSubModalOpen = ref(false); // 控制第二个模态框
@@ -401,6 +441,31 @@ const closeMainModal = () => {
 }
 
 /* 5. 按钮与标签 */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-btn-custom {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.settings-btn-custom:hover {
+  background: #e8eaf6;
+  color: #3f51b5;
+}
+
 .close-pill {
   border: none;
   background: #f5f5f5;
