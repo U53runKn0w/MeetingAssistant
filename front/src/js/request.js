@@ -23,9 +23,12 @@ service.interceptors.response.use(
     (response) => {
         const res = response.data;
 
+        // 如果后端返回错误码
         if (res.code && res.code !== 200) {
-            return Promise.reject(new Error(res.msg || 'Error'));
+            return Promise.reject(new Error(res.message || res.msg || 'Error'));
         }
+
+        // 返回完整的响应数据，保留 code 和 data 字段
         return res;
     },
     async (error) => {
@@ -34,14 +37,14 @@ service.interceptors.response.use(
             const data = error.response.data;
 
             if (status === 400) {
-                useMessageStore().setError(data.msg || '请求参数错误，请检查输入内容');
+                useMessageStore().setError(data.message || '请求参数错误，请检查输入内容');
             } else if (status === 401) {
                 localStorage.removeItem('token');
                 if (router.currentRoute.value.path !== '/login') {
                     useMessageStore().setError("登录已过期，请重新登录");
                     await router.push('/login');
                 }
-                return Promise.reject(new Error(data.msg || '身份过期，请重新登录'));
+                return Promise.reject(new Error(data.message || '身份过期，请重新登录'));
             } else if (status === 403) {
                 useMessageStore().setError('您没有权限执行此操作');
             } else if (status === 404) {
@@ -51,7 +54,7 @@ service.interceptors.response.use(
             } else if (status >= 500) {
                 useMessageStore().setError('服务器暂时不可用，请稍后重试');
             } else {
-                useMessageStore().setError(data.msg || '请求失败，请稍后重试');
+                useMessageStore().setError(data.message || '请求失败，请稍后重试');
             }
         } else if (error.request) {
             useMessageStore().setError('网络连接失败，请检查网络设置后重试');

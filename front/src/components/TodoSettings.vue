@@ -47,6 +47,10 @@
             <label class="form-label">显示设置</label>
             <div class="toggle-group">
               <label class="toggle-label">
+                <input type="checkbox" v-model="localSettings.showCompleted"/>
+                <span>显示已完成的待办</span>
+              </label>
+              <label class="toggle-label">
                 <input type="checkbox" v-model="localSettings.showUrgentOnly"/>
                 <span>仅显示紧急待办</span>
               </label>
@@ -87,6 +91,7 @@ const props = defineProps({
       reminderTime: 30,
       urgentTimeRange: 60,
       refreshInterval: 60,
+      showCompleted: false,
       showUrgentOnly: false,
       enableSound: false,
       autoOpenReminder: true

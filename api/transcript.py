@@ -6,7 +6,6 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
 from action.record import transcribe_audio
-from db.manager import db
 
 bp = Blueprint('transcript', __name__)
 

@@ -21,15 +21,15 @@
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="card-subtitle text-muted fw-bold">我的待办</h6>
-            <span class="badge bg-primary rounded-pill">{{ myData.todos.length }}</span>
+            <span class="badge bg-primary rounded-pill">{{ displayedTodos.length }}</span>
           </div>
           <div class="todo-list small">
-            <div v-for="todo in myData.todos" :key="todo.todo_id" class="text-truncate border-bottom py-1">
+            <div v-for="todo in displayedTodos" :key="todo.todo_id" class="text-truncate border-bottom py-1">
               <i class="bi bi-check2-circle me-1"
-                 :class="todo.status === 'completed' ? 'text-success' : 'text-warning'"></i>
+                 :class="getStatusIconClass(todo.status)"></i>
               {{ todo.task }}
             </div>
-            <div v-if="myData.todos.length === 0" class="text-muted py-2">暂无待办事项</div>
+            <div v-if="displayedTodos.length === 0" class="text-muted py-2">暂无待办事项</div>
           </div>
         </div>
       </div>
@@ -86,14 +86,40 @@
 
             <div v-for="(item, index) in modalDataList" :key="index" class="detail-item-card">
               <template v-if="activeType === 'todo'">
-                <div class="status-indicator" :class="item.status"></div>
-                <div class="flex-grow-1">
-                  <div class="fw-bold text-dark">{{ item.task }}</div>
-                  <div class="small text-muted">
-                    <i class="bi bi-clock me-1"></i> 截止于: {{ formatTime(item.deadline) }}
+                <div v-if="editingIndex === index" class="edit-mode w-100">
+                  <div class="d-flex flex-column gap-2 w-100">
+                    <input v-model="editTask" class="form-control form-control-sm" placeholder="待办任务" />
+                    <input v-model="editDeadline" type="datetime-local" class="form-control form-control-sm" />
+                    <select v-model="editStatus" class="form-select form-select-sm">
+                      <option value="pending">待确认</option>
+                      <option value="in_progress">进行中</option>
+                      <option value="completed">已完成</option>
+                    </select>
+                    <div class="d-flex gap-2">
+                      <button class="btn btn-sm btn-success flex-grow-1" @click="saveTodoEdit(index)">
+                        <i class="bi bi-check"></i> 保存
+                      </button>
+                      <button class="btn btn-sm btn-secondary flex-grow-1" @click="cancelEdit">
+                        <i class="bi bi-x"></i> 取消
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <span :class="['badge-pill', item.status]">{{ item.status }}</span>
+                <template v-else>
+                  <div class="status-indicator" :class="item.status"></div>
+                  <div class="flex-grow-1">
+                    <div class="fw-bold text-dark">{{ item.task }}</div>
+                    <div class="small text-muted">
+                      <i class="bi bi-clock me-1"></i> 截止于: {{ formatTime(item.deadline) }}
+                    </div>
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <span :class="['badge-pill', item.status]">{{ getStatusText(item.status) }}</span>
+                    <button class="btn btn-sm btn-outline-primary edit-todo-btn" @click="startTodoEdit(index, item)" title="编辑">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                  </div>
+                </template>
               </template>
 
               <template v-if="activeType === 'meeting'">
@@ -211,6 +237,12 @@ const editCategory = ref('');
 const editValue = ref('');
 const editItem = ref(null);
 
+// 待办编辑相关
+const editTask = ref('');
+const editDeadline = ref('');
+const editStatus = ref('pending');
+const editTodoId = ref(null);
+
 // 添加偏好相关
 const isAddModalOpen = ref(false);
 const newPreference = ref({
@@ -228,6 +260,7 @@ const settings = ref({
   reminderTime: 30,
   urgentTimeRange: 60,
   refreshInterval: 60,
+  showCompleted: false,
   showUrgentOnly: false,
   enableSound: false,
   autoOpenReminder: true
@@ -260,10 +293,25 @@ const modalTitle = computed(() => {
 
 // 获取当前要展示的详细数据
 const modalDataList = computed(() => {
-  if (activeType.value === 'todo') return myData.value.todos;
+  if (activeType.value === 'todo') {
+    // 根据设置过滤待办事项
+    let filtered = myData.value.todos;
+    if (!settings.value.showCompleted) {
+      filtered = filtered.filter(todo => todo.status !== 'completed');
+    }
+    return filtered;
+  }
   if (activeType.value === 'meeting') return myData.value.meetings;
   if (activeType.value === 'preference') return myData.value.preferences;
   return [];
+});
+
+// 首页显示的待办（根据设置过滤）
+const displayedTodos = computed(() => {
+  if (!settings.value.showCompleted) {
+    return myData.value.todos.filter(todo => todo.status !== 'completed');
+  }
+  return myData.value.todos;
 });
 
 const showDetail = (type) => {
@@ -275,6 +323,24 @@ const formatTime = (isoString) => {
   if (!isoString) return "";
   const date = new Date(isoString);
   return `${date.getMonth() + 1}月${date.getDate()}日 ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+};
+
+const getStatusText = (status) => {
+  const statusMap = {
+    'pending': '待确认',
+    'in_progress': '进行中',
+    'completed': '已完成'
+  };
+  return statusMap[status] || status;
+};
+
+const getStatusIconClass = (status) => {
+  const classMap = {
+    'pending': 'text-warning',
+    'in_progress': 'text-primary',
+    'completed': 'text-success'
+  };
+  return classMap[status] || 'text-secondary';
 };
 
 const fetchData = async () => {
@@ -405,6 +471,44 @@ const deletePreference = async (index) => {
   } catch (error) {
     console.error('删除偏好失败:', error);
     messageStore.setError('删除偏好失败，请稍后重试');
+  }
+};
+
+// 待办编辑功能
+const startTodoEdit = (index, item) => {
+  editingIndex.value = index;
+  editTodoId.value = item.todo_id;
+  editTask.value = item.task;
+  editDeadline.value = item.deadline ? item.deadline.slice(0, 16) : '';
+  editStatus.value = item.status;
+};
+
+const saveTodoEdit = async (index) => {
+  if (!editTask.value.trim()) {
+    messageStore.setInfo('待办任务不能为空');
+    return;
+  }
+
+  try {
+    // 使用 /api/todos/update 接口进行更新
+    await service.put('/todos/update', {
+      todos: [{
+        todo_id: editTodoId.value,
+        task: editTask.value.trim(),
+        deadline: editDeadline.value,
+        status: editStatus.value
+      }]
+    });
+    await fetchData();
+    editingIndex.value = -1;
+    editTodoId.value = null;
+    editTask.value = '';
+    editDeadline.value = '';
+    editStatus.value = 'pending';
+    messageStore.setSuccess('待办已更新');
+  } catch (error) {
+    console.error('更新待办失败:', error);
+    messageStore.setError('更新待办失败，请稍后重试');
   }
 };
 </script>
@@ -570,6 +674,10 @@ const deletePreference = async (index) => {
   background: #4caf50;
 }
 
+.status-indicator.in_progress {
+  background: #2196f3;
+}
+
 .status-indicator.meeting {
   background: #00acc1;
 }
@@ -632,6 +740,11 @@ const deletePreference = async (index) => {
   color: #2e7d32;
 }
 
+.badge-pill.in_progress {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
 /* 偏好独有样式 */
 .pref-label {
   font-weight: bold;
@@ -665,6 +778,12 @@ const deletePreference = async (index) => {
 
 .edit-mode input {
   flex: 1;
+}
+
+/* 待办编辑按钮 */
+.edit-todo-btn {
+  padding: 4px 8px;
+  font-size: 0.8rem;
 }
 
 /* 偏好内容容器 */
