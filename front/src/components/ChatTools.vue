@@ -34,12 +34,15 @@
           >
           </div>
 
-          <details class="mt-2" v-if="mindMapData">
+          <details class="mt-2" v-if="mindMapData" :open="mindmapSettings.showSourceCode">
             <summary class="small text-muted cursor-pointer">查看 Mermaid 源码</summary>
-            <pre class="small bg-light p-2 mt-1"><code>{{ mindMapData }}</code></pre>
+            <pre class="small bg-light p-2 mt-1 source-code-container"><code>{{ mindMapData }}</code></pre>
           </details>
         </div>
         <div class="modal-footer">
+          <button v-if="isMindMapLoading" @click="stopGeneration" class="btn btn-outline-danger me-auto">
+            <i class="bi bi-stop-circle me-1"></i> 停止生成
+          </button>
           <button class="btn btn-outline-primary" @click="downloadMindMap" :disabled="!mindMapData">
             <i class="bi bi-download me-1"></i> 导出源码 (.mmd)
           </button>
@@ -51,7 +54,7 @@
 </template>
 
 <script setup>
-import {onMounted, ref} from "vue";
+import {onMounted, ref, watch} from "vue";
 import mermaid from 'mermaid';
 import router from "@/router/index.js";
 import {storeToRefs} from "pinia";
@@ -68,24 +71,84 @@ const mermaidContainer = ref(null);
 const chat = useChatStore();
 const {buttonsShow} = storeToRefs(chat);
 const messageStore = useMessageStore();
+const abortController = ref(null);
+const renderTimer = ref(null);
+
+// 思维导图设置
+const mindmapSettings = ref({
+  theme: 'forest',
+  renderInterval: 500,
+  autoRender: true,
+  showSourceCode: false
+});
+
+// 加载设置
+const loadSettings = () => {
+  const savedSettings = localStorage.getItem('mindmapSettings');
+  if (savedSettings) {
+    try {
+      const parsed = JSON.parse(savedSettings);
+      mindmapSettings.value = {...mindmapSettings.value, ...parsed};
+    } catch (error) {
+      console.error('加载思维导图设置失败:', error);
+    }
+  }
+  reinitializeMermaid();
+};
+
+// 暴露 loadSettings 方法供父组件调用
+defineExpose({
+  loadSettings
+});
+
+// 重新初始化 Mermaid（应用主题设置）
+const reinitializeMermaid = () => {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: mindmapSettings.value.theme,
+    securityLevel: 'loose',
+    suppressErrorRendering: true,
+  });
+};
+
+// 监听设置变化
+watch(() => mindmapSettings.value.theme, () => {
+  reinitializeMermaid();
+  if (mindMapData.value && mermaidContainer.value) {
+    renderMermaid();
+  }
+});
 
 onMounted(() => {
+  loadSettings();
   if (chat.messages.length > 0 && chat.question.length > 0) {
     buttonsShow.value = true;
   }
+  
+  // 监听 localStorage 变化（当 History 组件保存设置时）
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'mindmapSettings') {
+      loadSettings();
+    }
+  });
 })
 
 const toResult = async () => {
   await router.push('/result');
 }
 
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'forest', // 可选：default, forest, dark, neutral
-  securityLevel: 'loose',
-  // 禁止 Mermaid 在报错时自动向 DOM 插入错误节点
-  suppressErrorRendering: true,
-});
+const stopGeneration = () => {
+  if (abortController.value) {
+    abortController.value.abort();
+    abortController.value = null;
+  }
+  if (renderTimer.value) {
+    clearInterval(renderTimer.value);
+    renderTimer.value = null;
+  }
+  isMindMapLoading.value = false;
+  messageStore.setError('已停止生成思维导图');
+}
 
 
 const renderMermaid = async () => {
@@ -111,7 +174,7 @@ const generateMindMap = async () => {
   mindMapData.value = "";
 
   const ctrl = new AbortController();
-  let timer;
+  abortController.value = ctrl;
 
   try {
     await fetchEventSource(mindMapUrl, {
@@ -129,9 +192,12 @@ const generateMindMap = async () => {
             await router.push('/login');
           }
         } else {
-          timer = setInterval(() => {
-            renderMermaid();
-          }, 500);
+          // 根据设置决定是否自动渲染
+          if (mindmapSettings.value.autoRender) {
+            renderTimer.value = setInterval(() => {
+              renderMermaid();
+            }, mindmapSettings.value.renderInterval);
+          }
         }
       },
 
@@ -141,14 +207,24 @@ const generateMindMap = async () => {
           mindMapData.value += data.content;
         } else if (data.type === 'done') {
           isMindMapLoading.value = false;
-          renderMermaid();
+          // 根据设置决定是否渲染
+          if (mindmapSettings.value.autoRender) {
+            renderMermaid();
+          }
+          if (renderTimer.value) {
+            clearInterval(renderTimer.value);
+            renderTimer.value = null;
+          }
           ctrl.abort();
         }
       },
 
       onclose: () => {
         isMindMapLoading.value = false;
-        clearInterval(timer);
+        if (renderTimer.value) {
+          clearInterval(renderTimer.value);
+          renderTimer.value = null;
+        }
         console.log("连接正常关闭");
       },
 
@@ -156,13 +232,18 @@ const generateMindMap = async () => {
         console.error("SSE异常:", err);
         messageStore.setError('连接中断，请检查后端服务。');
         isMindMapLoading.value = false;
+        abortController.value = null;
+        if (renderTimer.value) {
+          clearInterval(renderTimer.value);
+          renderTimer.value = null;
+        }
         ctrl.abort();
-        clearInterval(timer);
         throw err;
       }
     });
   } catch (err) {
     isMindMapLoading.value = false;
+    abortController.value = null;
   }
 };
 
@@ -233,4 +314,11 @@ summary {
   height: auto;
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
 }
+
+/* 源码容器滚动条 */
+.source-code-container {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
 </style>

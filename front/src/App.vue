@@ -9,7 +9,7 @@
 
   <UrgentTodo />
 
-  <div class="toast-container position-fixed top-0 end-0 p-3" style="margin-top: 150px;">
+  <div class="toast-container position-fixed top-0 end-0 p-3" style="margin-top: 150px; z-index: 9999;">
     <div
         v-for="msg in messageStore.messages"
         :key="msg.id"

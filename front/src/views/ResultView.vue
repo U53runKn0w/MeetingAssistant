@@ -124,16 +124,41 @@ const fetchMeetingDetails = async () => {
     if (key !== "get_user_info") {
       try {
         let strData = rawData[key];
-        // 关键修正：如果内容是单引号的字符串，JSON.parse 会失败，需要转换
+        // 改进的 JSON 解析：智能替换单引号，避免破坏字符串内部的单引号
         if (typeof strData === 'string') {
-          const validJsonStr = strData.replace(/'/g, '"');
+          const validJsonStr = strData
+            // 替换键名和字符串值两端的单引号为双引号
+            .replace(/'([^']+)':/g, '"$1":')  // 键名
+            .replace(/:\s*'([^']*)'/g, ':"$1"')  // 字符串值
+            // 替换数组元素的单引号
+            .replace(/\[\s*'([^']*)'/g, '["$1"')
+            .replace(/'([^']*)'\s*\]/g, '$1"]')
+            .replace(/,\s*'([^']*)'/g, ',"$1"')
+            // 替换对象嵌套中的单引号
+            .replace(/\{\s*'([^']+)':/g, '{"$1":')
+            .replace(/:\s*'([^']*)'\s*\}/g, ':"$1"}');
+
           parsedResults[key] = JSON.parse(validJsonStr);
         } else {
           parsedResults[key] = strData;
         }
       } catch (e) {
         console.warn(`解析 ${key} 失败`, e);
-        parsedResults[key] = null;
+        // 如果解析失败，尝试将单引号转义后再解析
+        try {
+          let strData = rawData[key];
+          if (typeof strData === 'string') {
+            // 将字符串内的单引号转义
+            const escapedStr = strData.replace(/'([^']*?)'/g, (match, content) => {
+              return '"' + content.replace(/'/g, "\\'") + '"';
+            });
+            parsedResults[key] = JSON.parse(escapedStr);
+          }
+        } catch (e2) {
+          console.warn(`第二次解析 ${key} 也失败`, e2);
+          // 如果还是失败，保持原样
+          parsedResults[key] = rawData[key];
+        }
       }
     }
   }

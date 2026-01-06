@@ -6,13 +6,29 @@
         <span class="brand-title">历史记录</span>
       </div>
 
-      <button class="menu-toggle" @click="isCollapsed = !isCollapsed" :title="isCollapsed ? '展开' : '收起'">
-        <svg v-if="isCollapsed" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-             stroke-width="2.5">
+      <div class="header-actions" v-show="!isCollapsed">
+        <button
+            class="btn-new-session"
+            @click="newSession"
+            title="新建会话"
+        >
+          <i class="bi bi-plus-lg"></i> 新会话
+        </button>
+        <button class="menu-toggle" @click="isCollapsed = !isCollapsed" :title="isCollapsed ? '展开' : '收起'">
+          <svg v-if="isCollapsed" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+               stroke-width="2.5">
+            <path d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+          <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M15 18l-6-6 6-6"/>
+          </svg>
+        </button>
+      </div>
+
+      <button class="menu-toggle" v-show="isCollapsed" @click="isCollapsed = !isCollapsed"
+              :title="isCollapsed ? '展开' : '收起'">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5">
           <path d="M4 6h16M4 12h16M4 18h16"/>
-        </svg>
-        <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M15 18l-6-6 6-6"/>
         </svg>
       </button>
     </div>
@@ -44,8 +60,6 @@
             <div class="title">{{ item.title || '新对话' }}</div>
             <div class="date">{{ formatDate(item.created_at) }}</div>
           </div>
-
-          <button class="delete-btn" @click.stop="openDeleteModal(item)">...</button>
 
           <ConfirmModal
               v-model="isModalVisible"
@@ -79,7 +93,67 @@
         <span class="dot"></span>
         共 {{ history.length }} 条记录
       </div>
+      <button
+          class="settings-btn"
+          @click="openSettingsModal"
+          title="设置"
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <path
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+          <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+      </button>
     </div>
+
+    <ConfirmModal
+        v-model="isSettingsVisible"
+        title="思维导图设置"
+        :loading="isSaving"
+        confirm-text="保存"
+        type="primary"
+        @confirm="saveSettings"
+    >
+      <div class="settings-form">
+        <div class="form-group">
+          <label class="form-label">主题样式</label>
+          <select v-model="settings.theme" class="form-input">
+            <option value="default">默认</option>
+            <option value="forest">森林</option>
+            <option value="dark">暗色</option>
+            <option value="neutral">中性</option>
+          </select>
+          <small class="form-hint">选择思维导图的配色主题</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">渲染间隔（毫秒）</label>
+          <input
+              type="number"
+              v-model.number="settings.renderInterval"
+              class="form-input"
+              placeholder="请输入渲染间隔"
+              min="100"
+              step="100"
+          />
+          <small class="form-hint">思维导图刷新渲染的时间间隔</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">显示设置</label>
+          <div class="toggle-group">
+            <label class="toggle-label">
+              <input type="checkbox" v-model="settings.autoRender"/>
+              <span>自动渲染导图</span>
+            </label>
+            <label class="toggle-label">
+              <input type="checkbox" v-model="settings.showSourceCode"/>
+              <span>显示源代码</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </ConfirmModal>
   </div>
 </template>
 
@@ -98,42 +172,16 @@ const {sessionId} = storeToRefs(chat);
 const loading = ref(false);
 const messageStore = useMessageStore();
 
-const fetchHistory = async () => {
-  loading.value = true;
-  service.get('/history').then((data) => {
-    history.value = data;
-  }).catch((error) => {
-    messageStore.setNetworkError('failed');
-    console.error("获取历史记录失败：", error.response?.data || error.message);
-  }).finally(() => {
-    loading.value = false;
-  });
-};
-
-const selectSession = async (item) => {
-  sessionId.value = item.session_id;
-
-  service.get(`/history/${item.session_id}`).then((data) => {
-    chat.messages = []
-    data.forEach((item) => {
-      chat.messages.push({
-        "type": item.type,
-        "text": item.text,
-      });
-    })
-
-    chat.question = item.title;
-    chat.text = item.meeting;
-
-    if (chat.messages.length > 0 && chat.question.length > 0) {
-      chat.buttonsShow = true;
-    }
-
-  }).catch((error) => {
-    messageStore.setNetworkError('failed');
-    console.error('加载会话详情失败:', error);
-  });
-};
+const emit = defineEmits(['new-session', 'select-session', 'settings-changed']);
+loading.value = true;
+service.get('/history').then((data) => {
+  history.value = data;
+}).catch((error) => {
+  messageStore.setNetworkError('failed');
+  console.error("获取历史记录失败：", error.response?.data || error.message);
+}).finally(() => {
+  loading.value = false;
+});
 
 
 onMounted(() => {
@@ -182,6 +230,96 @@ const handleDelete = async () => {
   }
 };
 
+// 设置相关
+const isSettingsVisible = ref(false);
+const isSaving = ref(false);
+const settings = ref({
+  theme: 'forest',
+  renderInterval: 500,
+  autoRender: true,
+  showSourceCode: false
+});
+
+const openSettingsModal = () => {
+  isSettingsVisible.value = true;
+};
+
+const saveSettings = async () => {
+  isSaving.value = true;
+  try {
+    localStorage.setItem('mindmapSettings', JSON.stringify(settings.value));
+    messageStore.setSuccess('思维导图设置已保存');
+    emit('settings-changed', settings.value);
+    isSettingsVisible.value = false;
+  } catch (error) {
+    messageStore.setClientError('badRequest');
+    console.error('保存设置失败:', error);
+  } finally {
+    isSaving.value = false;
+  }
+};
+
+// 从 localStorage 加载设置
+const fetchHistory = async () => {
+  loading.value = true;
+  service.get('/history').then((data) => {
+    history.value = data;
+  }).catch((error) => {
+    messageStore.setNetworkError('failed');
+    console.error("获取历史记录失败：", error.response?.data || error.message);
+  }).finally(() => {
+    loading.value = false;
+  });
+};
+
+
+const newSession = () => {
+  // 通知父组件新建会话
+  emit('new-session');
+};
+
+const selectSession = async (item) => {
+  sessionId.value = item.session_id;
+
+  // 通知父组件停止正在进行的生成
+  emit('select-session');
+
+  service.get(`/history/${item.session_id}`).then((data) => {
+    chat.messages = []
+    data.forEach((item) => {
+      chat.messages.push({
+        "type": item.type,
+        "text": item.text,
+      });
+    })
+
+    chat.question = item.title;
+    chat.text = item.meeting;
+
+    if (chat.messages.length > 0 && chat.question.length > 0) {
+      chat.buttonsShow = true;
+    }
+
+  }).catch((error) => {
+    messageStore.setNetworkError('failed');
+    console.error('加载会话详情失败:', error);
+  });
+};
+
+
+onMounted(() => {
+  fetchHistory();
+  const savedSettings = localStorage.getItem('mindmapSettings');
+  if (savedSettings) {
+    try {
+      const parsed = JSON.parse(savedSettings);
+      settings.value = {...settings.value, ...parsed};
+    } catch (error) {
+      console.error('加载设置失败:', error);
+    }
+  }
+});
+
 // 暴露 fetchHistory 方法供父组件调用
 defineExpose({
   fetchHistory
@@ -191,27 +329,28 @@ defineExpose({
 <style scoped>
 /* 变量定义 */
 .sidebar-wrapper {
-  --sb-bg: #ffffff;
+  --sb-bg: #fafbfc;
   --sb-hover: #f3f4f6;
   --sb-active: #eff6ff;
-  --primary: #2563eb;
+  --primary: #3b82f6;
   --text-main: #1f2937;
   --text-dim: #9ca3af;
-  --border-color: #f3f4f6;
+  --border-color: #e5e7eb;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
 
-  width: 260px;
+  width: 300px;
   height: 100vh;
-  background-color: var(--sb-bg);
+  background: var(--sb-bg);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.02);
 }
 
 .sidebar-wrapper.is-collapsed {
-  width: 72px;
+  width: 70px;
 }
 
 /* Header */
@@ -220,15 +359,53 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 18px;
+  padding: 0 16px;
   flex-shrink: 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 在折叠时强制隐藏 */
+.sidebar-wrapper.is-collapsed .header-actions {
+  display: none !important;
+}
+
+.btn-new-session {
+  padding: 7px 14px;
+  border: 1px solid var(--primary);
+  background: transparent;
+  color: var(--primary);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.btn-new-session:hover {
+  background: var(--primary);
+  color: white;
 }
 
 .brand-area {
   display: flex;
   align-items: center;
   gap: 10px;
-  animation: fadeIn 0.3s;
+  white-space: nowrap;
+}
+
+/* 在折叠时强制隐藏 */
+.sidebar-wrapper.is-collapsed .brand-area {
+  display: none !important;
 }
 
 .logo-dot {
@@ -236,14 +413,14 @@ defineExpose({
   height: 12px;
   background: var(--primary);
   border-radius: 4px;
-  box-shadow: 0 0 10px rgba(37, 99, 235, 0.3);
 }
 
 .brand-title {
-  font-weight: 700;
+  font-weight: 600;
   font-size: 0.9rem;
   color: var(--text-main);
   letter-spacing: 0.5px;
+  white-space: nowrap;
 }
 
 .menu-toggle {
@@ -251,7 +428,7 @@ defineExpose({
   height: 32px;
   border: none;
   background: transparent;
-  border-radius: 8px;
+  border-radius: 6px;
   color: var(--text-dim);
   cursor: pointer;
   display: flex;
@@ -268,8 +445,8 @@ defineExpose({
 /* Content & List */
 .sidebar-content {
   flex: 1;
-  /*overflow-y: overlay; !* 现代浏览器平滑滚动 *!*/
-  padding: 8px 12px;
+  overflow-y: auto;
+  padding: 12px 14px;
 }
 
 /* 隐藏滚动条但保留功能 */
@@ -283,31 +460,28 @@ defineExpose({
 }
 
 .sidebar-content:hover::-webkit-scrollbar-thumb {
-  background: #e5e7eb;
+  background: #d1d5db;
 }
 
 .nav-item {
   position: relative;
   display: flex;
   align-items: center;
-  padding: 12px;
+  padding: 14px;
   margin-bottom: 6px;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.15s;
   color: var(--text-main);
-  border: 1px solid transparent;
 }
 
 .nav-item:hover {
   background: var(--sb-hover);
-  transform: translateX(2px);
 }
 
 .nav-item.is-active {
   background: var(--sb-active);
   color: var(--primary);
-  border: 1px solid rgba(37, 99, 235, 0.1);
 }
 
 .nav-item.is-active .nav-icon {
@@ -320,17 +494,24 @@ defineExpose({
 }
 
 .nav-icon {
-  min-width: 24px;
+  min-width: 28px;
   display: flex;
   justify-content: center;
   color: var(--text-dim);
-  transition: color 0.2s;
+  transition: color 0.15s;
 }
 
 .nav-text {
-  margin-left: 12px;
+  margin-left: 10px;
   overflow: hidden;
   flex: 1;
+  white-space: nowrap;
+  transition: opacity 0.2s;
+}
+
+/* 确保在折叠状态下文字完全隐藏 */
+.sidebar-wrapper.is-collapsed .nav-text {
+  display: none;
 }
 
 .title {
@@ -339,6 +520,7 @@ defineExpose({
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text-main);
 }
 
 .date {
@@ -349,9 +531,8 @@ defineExpose({
 
 /* Footer */
 .sidebar-footer {
-  padding: 16px;
+  padding: 14px 16px;
   border-top: 1px solid var(--border-color);
-  background: linear-gradient(to top, var(--sb-bg), transparent);
 }
 
 .stats {
@@ -382,9 +563,9 @@ defineExpose({
   font-size: 12px;
   white-space: nowrap;
   z-index: 100;
-  transition: all 0.2s;
+  transition: all 0.15s;
   pointer-events: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .nav-item:hover .tooltip {
@@ -432,17 +613,22 @@ defineExpose({
 .delete-btn {
   position: absolute;
   right: 8px;
-  opacity: 0; /* 平时隐藏 */
+  opacity: 0;
   padding: 6px;
   border: none;
   background: transparent;
   color: var(--text-dim);
   border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* 确保在折叠状态下删除按钮完全隐藏 */
+.sidebar-wrapper.is-collapsed .delete-btn {
+  display: none;
 }
 
 /* Hover item 时显示按钮 */
@@ -452,8 +638,8 @@ defineExpose({
 
 /* 按钮自身的 Hover 效果 */
 .delete-btn:hover {
-  background-color: #fee2e2; /* 浅红色背景 */
-  color: #ef4444; /* 红色图标 */
+  background: #fee2e2;
+  color: #ef4444;
 }
 
 /* 如果是 Active 状态，调整按钮颜色以适配蓝色背景 */
@@ -462,7 +648,7 @@ defineExpose({
 }
 
 .nav-item.is-active .delete-btn:hover {
-  background-color: rgba(239, 68, 68, 0.1);
+  background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
 }
 
@@ -471,6 +657,122 @@ defineExpose({
   padding-right: 24px;
 }
 
+/* Footer Settings Button */
+.sidebar-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.stats .dot {
+  width: 6px;
+  height: 6px;
+  background: #10b981;
+  border-radius: 50%;
+}
+
+.settings-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.settings-btn:hover {
+  background: var(--sb-hover);
+  color: var(--primary);
+}
+
+/* Settings Form */
+.settings-form {
+  text-align: left;
+  margin-top: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-hint {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+
+/* Toggle Group */
+.toggle-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  cursor: pointer;
+  user-select: none;
+  padding: 6px 0;
+}
+
+.toggle-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.toggle-label span {
+  line-height: 1.5;
+}
 
 </style>
 
