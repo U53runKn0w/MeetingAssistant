@@ -9,6 +9,7 @@ export const useChatStore = defineStore('chat', {
         buttonsShow: false,
         text: dummyMeeting,
         sessionId: '',
+        isHistorySession: false,
     }),
     actions: {
         extractObservation() {

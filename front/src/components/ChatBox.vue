@@ -58,8 +58,10 @@
         <ChatInput
           v-model="userQuery"
           :is-generating="isGenerating"
+          :is-history-session="isHistorySession"
           @send="sendMessage"
           @stop="stopGeneration"
+          @new-session="newSession"
         />
       </div>
     </div>
@@ -72,7 +74,7 @@ import router from "@/router/index.js";
 import { createHeaders, parseReActContent } from "@/js/util.js";
 import { useChatStore } from "@/store/chat.js";
 import { storeToRefs } from "pinia";
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch } from "vue";
 import { useMessageStore } from "@/store/error.js";
 import { useScroll } from "@/composables/useScroll.js";
 
@@ -89,7 +91,7 @@ const emit = defineEmits(['refresh-history']);
 
 const chatStore = useChatStore();
 const { question: userQuery } = storeToRefs(chatStore);
-const { messages } = storeToRefs(chatStore);
+const { messages, isHistorySession } = storeToRefs(chatStore);
 const messageStore = useMessageStore();
 
 const isGenerating = ref(false);
@@ -116,6 +118,23 @@ const commonQuestions = ref([
 initScrollListener();
 watchMessages(messages);
 
+// 检查对话是否结束（是否有 Final Answer）
+const checkConversationFinished = () => {
+  const hasFinalAnswer = messages.value.some(msg => msg.type === 'Final Answer');
+  if (hasFinalAnswer) {
+    chatStore.isHistorySession = true;
+  } else {
+    chatStore.isHistorySession = false;
+  }
+};
+
+// 监听 messages 变化，检查对话是否结束
+watch(messages, () => {
+  if (!isGenerating.value) {
+    checkConversationFinished();
+  }
+}, { deep: true });
+
 const openFullScreen = () => isFullScreen.value = true;
 const closeFullScreen = () => isFullScreen.value = false;
 
@@ -137,6 +156,7 @@ const sendMessage = async (isResume = false) => {
 
   const url = isTest.value ? testUrl : productUrl;
   chatStore.buttonsShow = false;
+  chatStore.isHistorySession = false;
 
   if (!isResume) {
     messages.value = [];
@@ -241,6 +261,8 @@ const handleMessage = (data) => {
       isGenerating.value = false;
       abortController.value?.abort();
       chatStore.buttonsShow = true;
+      // done 后检查是否有 Final Answer
+      checkConversationFinished();
       break;
   }
 };
@@ -273,6 +295,7 @@ const stopGeneration = () => {
   abortController.value = null;
   isGenerating.value = false;
   chatStore.buttonsShow = true;
+  chatStore.isHistorySession = false;
 };
 
 const newSession = () => {
@@ -280,12 +303,20 @@ const newSession = () => {
   messages.value = [];
   chatStore.question = '';
   chatStore.sessionId = '';
-  chatStore.buttonsShow = true;
+  chatStore.buttonsShow = false;
+  chatStore.isHistorySession = false;
+};
+
+const scrollToBottom = () => {
+  if (chatContainer.value) {
+    autoScroll();
+  }
 };
 
 defineExpose({
   stopGeneration,
-  newSession
+  newSession,
+  scrollToBottom
 });
 </script>
 

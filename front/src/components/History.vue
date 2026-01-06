@@ -128,7 +128,7 @@ const userInfo = ref({
   role: ''
 });
 
-const emit = defineEmits(['new-session', 'select-session']);
+const emit = defineEmits(['new-session', 'select-session', 'session-loaded']);
 loading.value = true;
 service.get('/history').then((data) => {
   history.value = data;
@@ -233,9 +233,16 @@ const selectSession = async (item) => {
     chat.question = item.title;
     chat.text = item.meeting;
 
+    // 检查是否有 Final Answer 来决定 isHistorySession
+    const hasFinalAnswer = chat.messages.some(msg => msg.type === 'Final Answer');
+    chat.isHistorySession = hasFinalAnswer;
+
     if (chat.messages.length > 0 && chat.question.length > 0) {
       chat.buttonsShow = true;
     }
+
+    // 通知父组件会话已加载完成，需要滚动到底部
+    emit('session-loaded');
 
   }).catch((error) => {
     messageStore.setNetworkError('failed');

@@ -1,6 +1,6 @@
 <template>
   <div class="d-flex min-vh-100">
-    <History ref="historyRef" @select-session="handleSelectSession" @new-session="handleNewSession" @settings-changed="handleSettingsChanged"/>
+    <History ref="historyRef" @select-session="handleSelectSession" @new-session="handleNewSession" @settings-changed="handleSettingsChanged" @session-loaded="handleSessionLoaded"/>
 
     <div class="flex-grow-1 overflow-auto">
       <div class="container mt-5 mb-5">
@@ -43,6 +43,15 @@ const refreshHistory = () => {
 const handleSelectSession = () => {
   if (chatBoxRef.value) {
     chatBoxRef.value.stopGeneration();
+  }
+};
+
+const handleSessionLoaded = () => {
+  if (chatBoxRef.value) {
+    // 等待 DOM 更新后滚动到底部
+    setTimeout(() => {
+      chatBoxRef.value.scrollToBottom();
+    }, 100);
   }
 };
 

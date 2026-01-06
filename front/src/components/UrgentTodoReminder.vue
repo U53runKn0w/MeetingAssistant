@@ -104,18 +104,30 @@ const getDeadlineText = (deadline) => {
   const diffMins = Math.floor(diffMs / (1000 * 60));
 
   if (diffMs < 0) {
-    const hours = Math.abs(Math.floor(diffMs / (1000 * 60 * 60)));
+    const days = Math.abs(Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+    const hours = Math.abs(Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)));
     const mins = Math.abs(Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60)));
+    if (days > 0) {
+      return `已逾期 ${days}d${hours}h${mins}m`;
+    }
     if (hours > 0) {
       return `已逾期 ${hours}h${mins}m`;
     }
     return `已逾期 ${mins}m`;
   } else if (diffMins < 60) {
     return `${diffMins}m 后到期`;
-  } else {
+  } else if (diffMins < 24 * 60) {
     const hours = Math.floor(diffMins / 60);
     const mins = diffMins % 60;
     return `${hours}h${mins}m 后到期`;
+  } else {
+    const days = Math.floor(diffMins / (24 * 60));
+    const hours = Math.floor((diffMins % (24 * 60)) / 60);
+    const mins = diffMins % 60;
+    if (hours > 0 || mins > 0) {
+      return `${days}d${hours}h${mins}m 后到期`;
+    }
+    return `${days}d 后到期`;
   }
 };
 
