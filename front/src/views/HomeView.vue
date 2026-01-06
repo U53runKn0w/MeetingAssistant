@@ -1,6 +1,6 @@
 <template>
   <div class="d-flex min-vh-100">
-    <History ref="historyRef"/>
+    <History ref="historyRef" @select-session="handleSelectSession"/>
 
     <div class="flex-grow-1 overflow-auto">
       <div class="container mt-5 mb-5">
@@ -13,7 +13,7 @@
 
         <div class="row g-4">
           <MeetingInput></MeetingInput>
-          <ChatBox @refresh-history="refreshHistory"></ChatBox>
+          <ChatBox ref="chatBoxRef" @refresh-history="refreshHistory"></ChatBox>
           <ChatTools></ChatTools>
         </div>
       </div>
@@ -30,10 +30,17 @@ import ChatTools from "@/components/ChatTools.vue";
 import History from "@/components/History.vue";
 
 const historyRef = ref(null);
+const chatBoxRef = ref(null);
 
 const refreshHistory = () => {
   if (historyRef.value) {
     historyRef.value.fetchHistory();
+  }
+};
+
+const handleSelectSession = () => {
+  if (chatBoxRef.value) {
+    chatBoxRef.value.stopGeneration();
   }
 };
 </script>

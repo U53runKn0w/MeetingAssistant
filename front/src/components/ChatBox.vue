@@ -37,6 +37,7 @@
                 class="modal-body bg-light overflow-auto"
                 ref="fullChatContainer"
                 style="height: 70vh;"
+                @scroll.passive="handleFullScroll"
             >
               <div v-for="(msg, i) in messages" :key="'full-'+i"
                    :class="['message-block mb-3', msg.type.toLowerCase().replace(' ', '-')]">
@@ -189,6 +190,7 @@ const abortController = ref(null);
 
 // 自动跟随滚动状态
 const autoScroll = ref(true);
+const autoScrollFull = ref(true); // 全屏模式的自动跟随状态
 
 onMounted(() => {
   window.addEventListener('keydown', (e) => {
@@ -342,6 +344,11 @@ const stopGeneration = () => {
   chatStore.buttonsShow = true;
 };
 
+// 暴露 stopGeneration 方法供父组件调用
+defineExpose({
+  stopGeneration
+});
+
 // 处理滚动事件
 const handleScroll = () => {
   if (!chatContainer.value) return;
@@ -354,6 +361,21 @@ const handleScroll = () => {
     autoScroll.value = true;
   } else {
     autoScroll.value = false;
+  }
+};
+
+// 处理全屏模式的滚动事件
+const handleFullScroll = () => {
+  if (!fullChatContainer.value) return;
+
+  const { scrollTop, scrollHeight, clientHeight } = fullChatContainer.value;
+  const distanceToBottom = scrollHeight - (scrollTop + clientHeight);
+
+  // 如果距离底部小于 100px，开启自动跟随
+  if (distanceToBottom < 100) {
+    autoScrollFull.value = true;
+  } else {
+    autoScrollFull.value = false;
   }
 };
 
@@ -372,16 +394,17 @@ watch(messages, () => {
       chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
     }
 
-    // 滚动全屏弹窗的聊天框（如果弹窗当前是打开状态）
-    if (isFullScreen.value && fullChatContainer.value) {
+    // 全屏模式下，只有在开启自动跟随时才滚动
+    if (isFullScreen.value && fullChatContainer.value && autoScrollFull.value) {
       fullChatContainer.value.scrollTop = fullChatContainer.value.scrollHeight;
     }
   });
 }, {deep: true});
 
-// 全屏打开弹窗时，立即滚动到底部
+// 全屏打开弹窗时，立即滚动到底部并重置自动跟随状态
 watch(isFullScreen, (newVal) => {
   if (newVal) {
+    autoScrollFull.value = true; // 打开全屏时开启自动跟随
     nextTick(() => {
       if (fullChatContainer.value) {
         fullChatContainer.value.scrollTop = fullChatContainer.value.scrollHeight;
@@ -394,6 +417,13 @@ watch(isFullScreen, (newVal) => {
 watch(chatContainer, (newVal) => {
   if (newVal) {
     newVal.addEventListener('scroll', handleScroll);
+  }
+});
+
+// 监听 fullChatContainer 挂载，添加滚动监听
+watch(fullChatContainer, (newVal) => {
+  if (newVal) {
+    newVal.addEventListener('scroll', handleFullScroll);
   }
 });
 </script>

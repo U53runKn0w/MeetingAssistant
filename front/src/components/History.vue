@@ -110,8 +110,13 @@ const fetchHistory = async () => {
   });
 };
 
+const emit = defineEmits(['select-session']);
+
 const selectSession = async (item) => {
   sessionId.value = item.session_id;
+
+  // 通知父组件停止正在进行的生成
+  emit('select-session');
 
   service.get(`/history/${item.session_id}`).then((data) => {
     chat.messages = []
