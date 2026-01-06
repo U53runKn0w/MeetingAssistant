@@ -46,7 +46,6 @@
 </template>
 
 <script setup>
-import {dummyMeeting} from "@/js/etc.js";
 import {ref} from "vue";
 import {storeToRefs} from "pinia";
 import {useChatStore} from "@/store/chat.js";
@@ -56,6 +55,17 @@ const chatStore = useChatStore();
 const {text: meetingText} = storeToRefs(chatStore);
 const isUploading = ref(false);
 const messageStore = useMessageStore();
+
+// 填入会议纪要
+const fillMeetingText = (text) => {
+  meetingText.value = text;
+  messageStore.setSuccess('会议纪要已填入');
+};
+
+// 暴露给父组件调用
+defineExpose({
+  fillMeetingText
+});
 
 
 const handleFileUpload = async (event) => {

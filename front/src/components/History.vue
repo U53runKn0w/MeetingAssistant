@@ -89,71 +89,19 @@
     </div>
 
     <div class="sidebar-footer" v-show="!isCollapsed">
-      <div class="stats">
-        <span class="dot"></span>
-        共 {{ history.length }} 条记录
+      <div class="user-info">
+        <div class="user-avatar">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </div>
+        <div class="user-details">
+          <div class="user-name">{{ userInfo.nickname || userInfo.username }}</div>
+          <div class="user-role" v-if="userInfo.role">{{ userInfo.role }}</div>
+        </div>
       </div>
-      <button
-          class="settings-btn"
-          @click="openSettingsModal"
-          title="设置"
-      >
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-          <path
-              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-          <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-        </svg>
-      </button>
     </div>
-
-    <ConfirmModal
-        v-model="isSettingsVisible"
-        title="思维导图设置"
-        :loading="isSaving"
-        confirm-text="保存"
-        type="primary"
-        @confirm="saveSettings"
-    >
-      <div class="settings-form">
-        <div class="form-group">
-          <label class="form-label">主题样式</label>
-          <select v-model="settings.theme" class="form-input">
-            <option value="default">默认</option>
-            <option value="forest">森林</option>
-            <option value="dark">暗色</option>
-            <option value="neutral">中性</option>
-          </select>
-          <small class="form-hint">选择思维导图的配色主题</small>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">渲染间隔（毫秒）</label>
-          <input
-              type="number"
-              v-model.number="settings.renderInterval"
-              class="form-input"
-              placeholder="请输入渲染间隔"
-              min="100"
-              step="100"
-          />
-          <small class="form-hint">思维导图刷新渲染的时间间隔</small>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">显示设置</label>
-          <div class="toggle-group">
-            <label class="toggle-label">
-              <input type="checkbox" v-model="settings.autoRender"/>
-              <span>自动渲染导图</span>
-            </label>
-            <label class="toggle-label">
-              <input type="checkbox" v-model="settings.showSourceCode"/>
-              <span>显示源代码</span>
-            </label>
-          </div>
-        </div>
-      </div>
-    </ConfirmModal>
   </div>
 </template>
 
@@ -172,7 +120,15 @@ const {sessionId} = storeToRefs(chat);
 const loading = ref(false);
 const messageStore = useMessageStore();
 
-const emit = defineEmits(['new-session', 'select-session', 'settings-changed']);
+// 用户信息
+const userInfo = ref({
+  user_id: null,
+  username: '',
+  nickname: '',
+  role: ''
+});
+
+const emit = defineEmits(['new-session', 'select-session']);
 loading.value = true;
 service.get('/history').then((data) => {
   history.value = data;
@@ -183,9 +139,21 @@ service.get('/history').then((data) => {
   loading.value = false;
 });
 
+// 获取用户信息
+const fetchUserInfo = async () => {
+  try {
+    const data = await service.get('/user/info');
+    if (data) {
+      userInfo.value = data;
+    }
+  } catch (error) {
+    console.error("获取用户信息失败：", error.response?.data || error.message);
+  }
+};
 
 onMounted(() => {
   fetchHistory();
+  fetchUserInfo();
 });
 
 function formatDate(dateString) {
@@ -229,37 +197,6 @@ const handleDelete = async () => {
     isDeleting.value = false;
   }
 };
-
-// 设置相关
-const isSettingsVisible = ref(false);
-const isSaving = ref(false);
-const settings = ref({
-  theme: 'forest',
-  renderInterval: 500,
-  autoRender: true,
-  showSourceCode: false
-});
-
-const openSettingsModal = () => {
-  isSettingsVisible.value = true;
-};
-
-const saveSettings = async () => {
-  isSaving.value = true;
-  try {
-    localStorage.setItem('mindmapSettings', JSON.stringify(settings.value));
-    messageStore.setSuccess('思维导图设置已保存');
-    emit('settings-changed', settings.value);
-    isSettingsVisible.value = false;
-  } catch (error) {
-    messageStore.setClientError('badRequest');
-    console.error('保存设置失败:', error);
-  } finally {
-    isSaving.value = false;
-  }
-};
-
-// 从 localStorage 加载设置
 const fetchHistory = async () => {
   loading.value = true;
   service.get('/history').then((data) => {
@@ -309,15 +246,6 @@ const selectSession = async (item) => {
 
 onMounted(() => {
   fetchHistory();
-  const savedSettings = localStorage.getItem('mindmapSettings');
-  if (savedSettings) {
-    try {
-      const parsed = JSON.parse(savedSettings);
-      settings.value = {...settings.value, ...parsed};
-    } catch (error) {
-      console.error('加载设置失败:', error);
-    }
-  }
 });
 
 // 暴露 fetchHistory 方法供父组件调用
@@ -535,21 +463,6 @@ defineExpose({
   border-top: 1px solid var(--border-color);
 }
 
-.stats {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.75rem;
-  color: var(--text-dim);
-}
-
-.stats .dot {
-  width: 6px;
-  height: 6px;
-  background: #10b981;
-  border-radius: 50%;
-}
-
 /* Tooltip */
 .nav-item .tooltip {
   visibility: hidden;
@@ -657,27 +570,51 @@ defineExpose({
   padding-right: 24px;
 }
 
-/* Footer Settings Button */
-.sidebar-footer {
+/* User Info Styles */
+.user-info {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
+  flex: 1;
+  overflow: hidden;
 }
 
-.stats {
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), #8b5cf6);
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+}
+
+.user-details {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-role {
   font-size: 0.75rem;
   color: var(--text-dim);
-}
-
-.stats .dot {
-  width: 6px;
-  height: 6px;
-  background: #10b981;
-  border-radius: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .settings-btn {
@@ -768,10 +705,6 @@ defineExpose({
   height: 18px;
   cursor: pointer;
   accent-color: var(--primary);
-}
-
-.toggle-label span {
-  line-height: 1.5;
 }
 
 </style>

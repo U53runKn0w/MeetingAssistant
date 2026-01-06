@@ -14,6 +14,8 @@ class User(Base):
     user_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     password: Mapped[str] = mapped_column(String(255), nullable=False)
+    nickname: Mapped[Optional[str]] = mapped_column(String(100))
+    role: Mapped[Optional[str]] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
@@ -30,6 +32,8 @@ class Meeting(Base):
     subject: Mapped[str] = mapped_column(Text, nullable=False)
     start_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     duration: Mapped[Optional[int]] = mapped_column(Integer)
+    summary: Mapped[Optional[str]] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default="scheduled")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
@@ -64,12 +68,12 @@ class Todo(Base):
 
 
 class Preference(Base):
-    __tablename__ = "preference"
+    __tablename__ = "preferences"
 
     preference_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"))
     category: Mapped[str] = mapped_column(String(50), nullable=False)
-    preference: Mapped[str] = mapped_column(Text, nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="preferences")
 

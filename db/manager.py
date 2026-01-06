@@ -13,8 +13,19 @@ from db.models import User, Meeting, Attendee, Todo, Preference, ChatSession, Di
 
 class MeetingDB:
     def __init__(self, db_url: str = "sqlite:///db/db.sqlite"):
-        self.engine = create_engine(db_url, connect_args={"check_same_thread": False})
+        self.engine = create_engine(
+            db_url,
+            connect_args={"check_same_thread": False},
+            pool_size=10,
+            max_overflow=20,
+            pool_pre_ping=True
+        )
         self.SessionLocal = sessionmaker(bind=self.engine)
+
+    @staticmethod
+    def _now():
+        """获取当前时间（上海时区）"""
+        return datetime.now(ZoneInfo("Asia/Shanghai"))
 
         sql_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "init.sql")
         insert_sql_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "insert.sql")
@@ -48,9 +59,9 @@ class MeetingDB:
                 print("未找到 init.sql，将仅创建空表。")
 
     # --- 用户操作 ---
-    def add_user(self, username: str, password: str) -> int:
+    def add_user(self, username: str, password: str, nickname: Optional[str] = None, role: Optional[str] = None) -> int:
         with self.SessionLocal() as session:
-            new_user = User(username=username, password=password)
+            new_user = User(username=username, password=password, nickname=nickname, role=role)
             session.add(new_user)
             session.commit()
             return new_user.user_id
@@ -59,7 +70,12 @@ class MeetingDB:
         with self.SessionLocal() as session:
             stmt = select(User).where(User.username == username)
             user = session.execute(stmt).scalar_one_or_none()
-            return {"user_id": user.user_id, "username": user.username} if user else None
+            return {
+                "user_id": user.user_id,
+                "username": user.username,
+                "nickname": user.nickname,
+                "role": user.role
+            } if user else None
 
     def check_user(self, username: str, password: str):
         with self.SessionLocal() as session:
@@ -73,27 +89,37 @@ class MeetingDB:
     # --- 会议操作 ---
     def add_meeting(self, user_id: int, subject: str, start_time: datetime,
                     duration: Optional[int] = None,
-                    attendees: Optional[List[str]] = None) -> int:
+                    attendees: Optional[List[str]] = None,
+                    summary: Optional[str] = None,
+                    status: str = "scheduled") -> int:
         with self.SessionLocal() as session:
-            meeting = Meeting(
+            m = Meeting(
                 user_id=user_id,
                 subject=subject,
                 start_time=start_time,
-                duration=duration
+                duration=duration,
+                summary=summary,
+                status=status
             )
             if attendees:
-                meeting.attendees = [Attendee(name=name) for name in attendees]
+                m.attendees = [Attendee(name=name) for name in attendees]
 
-            session.add(meeting)
+            session.add(m)
             session.commit()
-            return meeting.meeting_id
+            return m.meeting_id
 
     def get_user_meetings(self, user_id: int) -> List[Dict]:
         with self.SessionLocal() as session:
             stmt = select(Meeting).where(Meeting.user_id == user_id).order_by(Meeting.start_time.desc())
             results = session.execute(stmt).scalars().all()
             return [
-                {"meeting_id": m.meeting_id, "subject": m.subject, "start_time": m.start_time.isoformat()}
+                {
+                    "meeting_id": m.meeting_id,
+                    "subject": m.subject,
+                    "start_time": m.start_time.isoformat(),
+                    "summary": m.summary,
+                    "status": m.status
+                }
                 for m in results
             ]
 
@@ -107,9 +133,25 @@ class MeetingDB:
             return {
                 "meeting_id": meeting.meeting_id,
                 "subject": meeting.subject,
+                "start_time": meeting.start_time.isoformat(),
+                "duration": meeting.duration,
+                "summary": meeting.summary,
+                "status": meeting.status,
                 "attendees": [a.name for a in meeting.attendees],
                 "todos": [{"task": t.task, "owner": t.owner} for t in meeting.todos]
             }
+
+    def update_meeting_summary(self, meeting_id: int, user_id: int, summary: str, status: str = "completed") -> bool:
+        """更新会议纪要和状态"""
+        with self.SessionLocal() as session:
+            stmt = select(Meeting).where(Meeting.meeting_id == meeting_id, Meeting.user_id == user_id)
+            meeting = session.execute(stmt).scalar_one_or_none()
+            if not meeting:
+                return False
+            meeting.summary = summary
+            meeting.status = status
+            session.commit()
+            return True
 
     # --- 待办事项批量操作 ---
     def add_todos(self, user_id: int, meeting_id: int, todos_data: List[Dict]) -> None:
@@ -121,7 +163,8 @@ class MeetingDB:
                     owner=t["owner"],
                     task=t["task"],
                     # Accept either a datetime or an ISO string (coerce to datetime if needed)
-                    deadline=(t.get("deadline") if (not isinstance(t.get("deadline"), str)) else datetime.fromisoformat(t.get("deadline"))),
+                    deadline=(t.get("deadline") if (not isinstance(t.get("deadline"), str)) else datetime.fromisoformat(
+                        t.get("deadline"))),
                     status=t.get("status", "pending")
                 ) for t in todos_data
             ]
@@ -152,7 +195,8 @@ class MeetingDB:
             stmt = select(Todo).where(Todo.user_id == user_id).order_by(Todo.deadline.desc())
             results = session.execute(stmt).scalars().all()
             return [
-                {"todo_id": t.todo_id, "task": t.task, "deadline": (t.deadline.isoformat() if t.deadline else None), "status": t.status}
+                {"todo_id": t.todo_id, "task": t.task, "deadline": (t.deadline.isoformat() if t.deadline else None),
+                 "status": t.status}
                 for t in results
             ]
 
@@ -164,9 +208,9 @@ class MeetingDB:
             pref = session.execute(stmt).scalar_one_or_none()
 
             if pref:
-                pref.preference = preference_val
+                pref.value = preference_val
             else:
-                pref = Preference(user_id=user_id, category=category, preference=preference_val)
+                pref = Preference(user_id=user_id, category=category, value=preference_val)
                 session.add(pref)
 
             session.commit()
@@ -176,7 +220,7 @@ class MeetingDB:
         with self.SessionLocal() as session:
             stmt = select(Preference).where(Preference.user_id == user_id)
             prefs = session.execute(stmt).scalars().all()
-            return {p.category: p.preference for p in prefs}
+            return {p.category: p.value for p in prefs}
 
     def delete_user_preference(self, user_id: int, category: str):
         with self.SessionLocal() as session:
@@ -205,7 +249,8 @@ class MeetingDB:
     def get_chat_detail(self, session_id: str) -> List[Dict]:
         """获取某个对话的完整 ReAct 过程"""
         with (self.SessionLocal() as session):
-            stmt = select(DialogStep).where(DialogStep.session_id == session_id).order_by(DialogStep.sequence_order.asc())
+            stmt = select(DialogStep).where(DialogStep.session_id == session_id).order_by(
+                DialogStep.sequence_order.asc())
             results = session.execute(stmt).scalars().all()
             steps = [
                 {"type": step.type, "text": step.content}
@@ -217,8 +262,13 @@ class MeetingDB:
         """创建一个新的会话并返回 ID"""
         new_id = str(uuid.uuid4())
         with self.SessionLocal() as session:
-            chat_session = ChatSession(session_id=new_id, user_id=user_id, query=query, meeting=meeting,
-                                       created_at=datetime.now(ZoneInfo("Asia/Shanghai")))
+            chat_session = ChatSession(
+                session_id=new_id,
+                user_id=user_id,
+                query=query,
+                meeting=meeting,
+                created_at=self._now()
+            )
             session.add(chat_session)
             session.commit()
             return new_id
@@ -237,7 +287,7 @@ class MeetingDB:
                     sequence_order=idx,
                     type=item.get('type'),
                     content=item.get('text'),
-                    created_at=datetime.now(ZoneInfo("Asia/Shanghai"))
+                    created_at=self._now()
                 )
                 session.add(step)
 
@@ -261,7 +311,7 @@ class MeetingDB:
                 sequence_order=sequence_order,
                 type=step_data.get('type'),
                 content=step_data.get('text'),
-                created_at=datetime.now(ZoneInfo("Asia/Shanghai"))
+                created_at=self._now()
             )
             session.add(step)
 

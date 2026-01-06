@@ -21,7 +21,7 @@
           <h5 class="modal-title"><i class="bi bi-diagram-3 me-2"></i>会议思维导图 (Mermaid)</h5>
           <button type="button" class="btn-close btn-close-white" @click="showMindMapModal = false"></button>
         </div>
-        <div class="modal-body bg-white d-flex flex-column overflow-hidden">
+        <div class="modal-body bg-white d-flex flex-column overflow-hidden position-relative">
           <div v-if="isMindMapLoading && !mindMapData" class="text-center my-auto">
             <div class="spinner-border text-success mb-3" role="status"></div>
             <p>正在接收 Mermaid 数据并绘制...</p>
@@ -38,6 +38,17 @@
             <summary class="small text-muted cursor-pointer">查看 Mermaid 源码</summary>
             <pre class="small bg-light p-2 mt-1 source-code-container"><code>{{ mindMapData }}</code></pre>
           </details>
+
+          <!-- 右下角设置区域 -->
+          <div class="settings-corner">
+            <button class="settings-toggle" @click="showSettingsModal = true" title="思维导图设置">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <path
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+            </button>
+          </div>
         </div>
         <div class="modal-footer">
           <button v-if="isMindMapLoading" @click="stopGeneration" class="btn btn-outline-danger me-auto">
@@ -47,6 +58,67 @@
             <i class="bi bi-download me-1"></i> 导出源码 (.mmd)
           </button>
           <button class="btn btn-secondary" @click="showMindMapModal = false">关闭</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 设置模态框 -->
+  <div v-if="showSettingsModal" class="modal-backdrop fade show"></div>
+  <div class="modal fade show" v-if="showSettingsModal" style="display: block;" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content shadow-lg">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-gear me-2"></i>思维导图设置</h5>
+          <button type="button" class="btn-close" @click="showSettingsModal = false"></button>
+        </div>
+        <div class="modal-body">
+          <div class="settings-form">
+            <div class="form-group">
+              <label class="form-label">主题样式</label>
+              <select v-model="mindmapSettings.theme" class="form-input">
+                <option value="default">默认</option>
+                <option value="forest">森林</option>
+                <option value="dark">暗色</option>
+                <option value="neutral">中性</option>
+              </select>
+              <small class="form-hint">选择思维导图的配色主题</small>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">渲染间隔（毫秒）</label>
+              <input
+                  type="number"
+                  v-model.number="mindmapSettings.renderInterval"
+                  class="form-input"
+                  placeholder="请输入渲染间隔"
+                  min="100"
+                  step="100"
+              />
+              <small class="form-hint">思维导图刷新渲染的时间间隔</small>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">显示设置</label>
+              <div class="toggle-group">
+                <label class="toggle-label">
+                  <input type="checkbox" v-model="mindmapSettings.autoRender"/>
+                  <span>自动渲染导图</span>
+                </label>
+                <label class="toggle-label">
+                  <input type="checkbox" v-model="mindmapSettings.showSourceCode"/>
+                  <span>显示源代码</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="showSettingsModal = false">取消</button>
+          <button class="btn btn-primary" @click="saveSettings" :disabled="isSaving">
+            <span v-if="isSaving" class="spinner-border spinner-border-sm me-1"></span>
+            保存
+          </button>
         </div>
       </div>
     </div>
@@ -73,6 +145,10 @@ const {buttonsShow} = storeToRefs(chat);
 const messageStore = useMessageStore();
 const abortController = ref(null);
 const renderTimer = ref(null);
+
+// 设置模态框
+const showSettingsModal = ref(false);
+const isSaving = ref(false);
 
 // 思维导图设置
 const mindmapSettings = ref({
@@ -255,6 +331,25 @@ const downloadMindMap = () => {
   a.download = `mindmap.mmd`;
   a.click();
 };
+
+const saveSettings = async () => {
+  isSaving.value = true;
+  try {
+    localStorage.setItem('mindmapSettings', JSON.stringify(mindmapSettings.value));
+    messageStore.setSuccess('思维导图设置已保存');
+    showSettingsModal.value = false;
+    // 触发 storage 事件，让其他组件感知到设置变化
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'mindmapSettings',
+      newValue: JSON.stringify(mindmapSettings.value)
+    }));
+  } catch (error) {
+    messageStore.setClientError('badRequest');
+    console.error('保存设置失败:', error);
+  } finally {
+    isSaving.value = false;
+  }
+};
 </script>
 
 <style scoped>
@@ -319,6 +414,114 @@ summary {
 .source-code-container {
   max-height: 200px;
   overflow-y: auto;
+}
+
+/* 设置表单样式 */
+.settings-form {
+  text-align: left;
+  margin-top: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #1f2937;
+  margin-bottom: 8px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-hint {
+  display: block;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin-top: 6px;
+}
+
+.toggle-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #1f2937;
+  cursor: pointer;
+  user-select: none;
+  padding: 6px 0;
+}
+
+.toggle-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+.toggle-label span {
+  line-height: 1.5;
+}
+
+/* 右下角设置区域 */
+.settings-corner {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  z-index: 10;
+}
+
+.settings-toggle {
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  color: #495057;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.settings-toggle:hover {
+  background: #fff;
+  color: #3b82f6;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.settings-toggle:active {
+  transform: scale(0.95);
 }
 
 </style>

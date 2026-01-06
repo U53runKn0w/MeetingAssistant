@@ -7,9 +7,14 @@
             <h6 class="card-subtitle text-muted fw-bold">我的会议</h6>
             <i class="bi bi-calendar-event text-info"></i>
           </div>
-          <div class="meeting-list small" v-if="myData.nextMeeting">
-            <p class="mb-1 fw-bold text-primary">{{ formatTime(myData.nextMeeting.start_time) }}</p>
-            <p class="mb-0 text-secondary">{{ myData.nextMeeting.subject }}</p>
+          <div class="meeting-list small" v-if="displayedMeetings.length > 0">
+            <div v-for="meeting in displayedMeetings" :key="meeting.meeting_id || meeting.id" class="meeting-preview-item">
+              <p class="mb-1 fw-bold text-primary">{{ formatTime(meeting.start_time) }}</p>
+              <p class="mb-0 text-secondary">{{ meeting.subject }}</p>
+            </div>
+            <div v-if="myData.meetings.length > 3" class="more-meetings text-center mt-2 text-muted small">
+              <i class="bi bi-chevron-down"></i> 还有 {{ myData.meetings.length - 3 }} 个会议
+            </div>
           </div>
           <div v-else class="text-muted small">暂无会议安排</div>
         </div>
@@ -123,14 +128,39 @@
               </template>
 
               <template v-if="activeType === 'meeting'">
-                <div class="status-indicator meeting"></div>
-                <div class="flex-grow-1">
-                  <div class="fw-bold text-dark">{{ item.subject }}</div>
-                  <div class="small text-muted">
-                    <i class="bi bi-calendar3 me-1"></i> {{ formatTime(item.start_time) }}
+                <div
+                    class="meeting-item-wrapper"
+                    :class="{'clickable': item.status === 'completed' && item.summary}"
+                    @click="item.status === 'completed' && item.summary ? openMeetingDetail(item) : null"
+                >
+                  <div class="status-indicator" :class="item.status === 'completed' ? 'meeting-completed' : 'meeting'"></div>
+                  <div class="meeting-content">
+                    <div class="meeting-header">
+                      <div class="meeting-title">{{ item.subject }}</div>
+                      <span :class="['meeting-badge', item.status === 'completed' ? 'completed' : 'pending']">
+                        {{ item.status === 'completed' ? '已完成' : '待开始' }}
+                      </span>
+                    </div>
+                    <div class="meeting-info">
+                      <div class="meeting-time">
+                        <i class="bi bi-calendar3"></i>
+                        <span>{{ formatTime(item.start_time) }}</span>
+                      </div>
+                      <div v-if="item.duration" class="meeting-duration">
+                        <i class="bi bi-clock-history"></i>
+                        <span>{{ item.duration }}</span>
+                      </div>
+                    </div>
+                    <div v-if="item.summary" class="meeting-summary">
+                      <i class="bi bi-file-text"></i>
+                      <span>{{ getSummaryPreview(item.summary) }}</span>
+                    </div>
                   </div>
+                  <div v-if="item.status === 'completed' && item.summary" class="view-detail-icon">
+                    <i class="bi bi-arrow-right-circle-fill"></i>
+                  </div>
+                  <i v-else class="bi bi-chevron-right text-muted"></i>
                 </div>
-                <i class="bi bi-chevron-right text-muted"></i>
               </template>
 
               <template v-if="activeType === 'preference'">
@@ -212,6 +242,76 @@
     <Transition name="fade">
       <div v-if="isSettingsVisible" class="glass-overlay sub-modal-overlay" @click.self="isSettingsVisible = false">
         <TodoSettings v-model="isSettingsVisible" :settings="settings" @save="handleSettingsSave"></TodoSettings>
+      </div>
+    </Transition>
+
+    <!-- 会议详情模态框 -->
+    <Transition name="fade">
+      <div v-if="isMeetingDetailOpen" class="glass-overlay sub-modal-overlay" @click.self="closeMeetingDetail">
+        <div class="glass-modal animate__animated animate__zoomIn meeting-detail-modal">
+          <div class="modal-header-custom meeting-detail-header">
+            <div class="d-flex align-items-center">
+              <div class="icon-box meeting-detail-icon">
+                <i class="bi bi-file-earmark-text-fill"></i>
+              </div>
+              <div>
+                <h3 class="fw-bold mb-0 text-dark">会议详情</h3>
+                <p class="text-muted mb-0 small">查看完整的会议纪要信息</p>
+              </div>
+            </div>
+            <button class="close-pill" @click="closeMeetingDetail">
+              <i class="bi bi-x"></i> 关闭
+            </button>
+          </div>
+
+          <div class="modal-body-custom meeting-detail-body">
+            <div v-if="selectedMeeting">
+              <div class="meeting-detail-section">
+                <h6 class="section-title">会议主题</h6>
+                <div class="section-content">{{ selectedMeeting.subject }}</div>
+              </div>
+
+              <div class="meeting-detail-section">
+                <h6 class="section-title">会议时间</h6>
+                <div class="section-content">
+                  <i class="bi bi-calendar3 me-2"></i>
+                  {{ formatTime(selectedMeeting.start_time) }}
+                  <span v-if="selectedMeeting.duration" class="ms-3">
+                    <i class="bi bi-clock-history me-2"></i>
+                    {{ selectedMeeting.duration }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="meeting-detail-section">
+                <h6 class="section-title">会议状态</h6>
+                <div class="section-content">
+                  <span :class="['status-badge', selectedMeeting.status]">
+                    {{ selectedMeeting.status === 'completed' ? '已开展' : '待开始' }}
+                  </span>
+                </div>
+              </div>
+
+              <div v-if="selectedMeeting.summary" class="meeting-detail-section">
+                <h6 class="section-title">会议纪要</h6>
+                <div class="section-content meeting-summary-content">
+                  {{ selectedMeeting.summary }}
+                </div>
+              </div>
+
+              <div v-if="selectedMeeting.summary" class="meeting-detail-actions">
+                <button class="btn btn-primary action-btn" @click="fillMeetingSummary">
+                  <i class="bi bi-arrow-down-circle me-2"></i>
+                  填入会议纪要
+                </button>
+                <button class="btn btn-outline-secondary action-btn" @click="closeMeetingDetail">
+                  <i class="bi bi-x-circle me-2"></i>
+                  取消
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </Transition>
   </div>
@@ -314,6 +414,11 @@ const displayedTodos = computed(() => {
   return myData.value.todos;
 });
 
+// 首页显示的会议（最多显示3个，未开始的会议优先）
+const displayedMeetings = computed(() => {
+  return myData.value.meetings.slice(0, 3);
+});
+
 const showDetail = (type) => {
   activeType.value = type;
   isModalOpen.value = true;
@@ -323,6 +428,12 @@ const formatTime = (isoString) => {
   if (!isoString) return "";
   const date = new Date(isoString);
   return `${date.getMonth() + 1}月${date.getDate()}日 ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+};
+
+// 获取会议纪要预览
+const getSummaryPreview = (summary) => {
+  if (!summary) return '';
+  return summary.substring(0, 50) + (summary.length > 50 ? '...' : '');
 };
 
 const getStatusText = (status) => {
@@ -356,7 +467,18 @@ const fetchData = async () => {
 
   service.get(`/meetings`).then(data => {
     if (data.code === 200) {
-      myData.value.meetings = data.data.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+      // 排序：未开始的会议优先（按时间），已完成的会议排在后面
+      myData.value.meetings = data.data.sort((a, b) => {
+        const aCompleted = a.status === 'completed';
+        const bCompleted = b.status === 'completed';
+
+        if (aCompleted !== bCompleted) {
+          return aCompleted ? 1 : -1; // 未完成的在前
+        }
+
+        // 同状态的按时间排序
+        return new Date(a.start_time) - new Date(b.start_time);
+      });
       if (data.data.length > 0) myData.value.nextMeeting = myData.value.meetings[0];
     }
   }).catch(error => {
@@ -388,6 +510,8 @@ onMounted(() => {
 });
 
 const isSubModalOpen = ref(false); // 控制第二个模态框
+const isMeetingDetailOpen = ref(false); // 控制会议详情模态框
+const selectedMeeting = ref(null); // 选中的会议
 
 // 打开第二个模态框的方法
 const openSubModal = () => {
@@ -398,6 +522,32 @@ const openSubModal = () => {
 const closeMainModal = () => {
   isModalOpen.value = false;
   isSubModalOpen.value = false;
+  isMeetingDetailOpen.value = false;
+};
+
+// 打开会议详情
+const openMeetingDetail = (meeting) => {
+  selectedMeeting.value = meeting;
+  isMeetingDetailOpen.value = true;
+};
+
+// 关闭会议详情
+const closeMeetingDetail = () => {
+  isMeetingDetailOpen.value = false;
+  selectedMeeting.value = null;
+};
+
+// 填入会议纪要到输入框
+const fillMeetingSummary = () => {
+  if (selectedMeeting.value && selectedMeeting.value.summary) {
+    // 触发自定义事件，将会议纪要传递给父组件
+    const event = new CustomEvent('fillMeetingSummary', {
+      detail: { summary: selectedMeeting.value.summary }
+    });
+    window.dispatchEvent(event);
+    closeMeetingDetail();
+    isModalOpen.value = false;
+  }
 };
 
 // 编辑偏好功能
@@ -516,6 +666,34 @@ const saveTodoEdit = async (index) => {
 <style scoped>
 .todo-list, .meeting-list, .preference-list {
   min-height: 60px;
+}
+
+.meeting-preview-item {
+  padding: 6px 0;
+  border-bottom: 1px dashed #e0e0e0;
+}
+
+.meeting-preview-item:last-child {
+  border-bottom: none;
+}
+
+.meeting-preview-item .text-primary {
+  font-size: 0.85rem;
+}
+
+.meeting-preview-item .text-secondary {
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.more-meetings {
+  cursor: pointer;
+  transition: opacity 0.2s;
+  padding-top: 4px;
+}
+
+.more-meetings:hover {
+  opacity: 0.7;
 }
 
 .card-subtitle {
@@ -680,6 +858,30 @@ const saveTodoEdit = async (index) => {
 
 .status-indicator.meeting {
   background: #00acc1;
+}
+
+.status-indicator.meeting-completed {
+  background: #4caf50;
+}
+
+/* 会议状态徽章 */
+.meeting-status-badge {
+  margin-top: 4px;
+}
+
+.meeting-status-badge .badge {
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* 会议纪要预览 */
+.summary-preview {
+  color: #666;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 5. 按钮与标签 */
@@ -853,5 +1055,219 @@ const saveTodoEdit = async (index) => {
 /* 进场动画：使用缩放效果区分 */
 .animate__zoomIn {
   animation-duration: 0.3s;
+}
+
+/* 会议项样式优化 */
+.meeting-item-wrapper {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  transition: all 0.2s ease;
+}
+
+.meeting-item-wrapper.clickable {
+  cursor: pointer;
+}
+
+.meeting-item-wrapper.clickable:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0, 172, 193, 0.1);
+}
+
+.meeting-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.meeting-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.meeting-title {
+  font-weight: bold;
+  color: #212121;
+  font-size: 1rem;
+}
+
+.meeting-badge {
+  font-size: 0.7rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.meeting-badge.pending {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.meeting-badge.completed {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.meeting-info {
+  display: flex;
+  gap: 16px;
+  font-size: 0.8rem;
+  color: #757575;
+  margin-bottom: 6px;
+}
+
+.meeting-time,
+.meeting-duration {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.meeting-time i,
+.meeting-duration i {
+  color: #00acc1;
+}
+
+.meeting-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #9e9e9e;
+  font-style: italic;
+}
+
+.meeting-summary i {
+  margin-top: 2px;
+  color: #00acc1;
+}
+
+.view-detail-icon {
+  color: #00acc1;
+  font-size: 1.3rem;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+/* 会议详情模态框样式 */
+.meeting-detail-modal {
+  max-width: 700px;
+  max-height: 85vh;
+}
+
+.meeting-detail-header {
+  background: linear-gradient(135deg, #e0f7fa 0%, #e1f5fe 100%);
+}
+
+.meeting-detail-icon {
+  background: linear-gradient(135deg, #00acc1 0%, #0097a7 100%);
+  color: white;
+}
+
+.meeting-detail-body {
+  background: white;
+  padding: 24px 30px;
+}
+
+.meeting-detail-section {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.meeting-detail-section:last-of-type {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.section-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #757575;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+.section-content {
+  font-size: 1rem;
+  color: #424242;
+  line-height: 1.6;
+}
+
+.status-badge {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.status-badge.completed {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-badge.pending {
+  background: #fff3e0;
+  color: #f57c00;
+}
+
+.meeting-summary-content {
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 0.95rem;
+  line-height: 1.8;
+  color: #616161;
+  white-space: pre-wrap;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.meeting-detail-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #f5f5f5;
+}
+
+.action-btn {
+  flex: 1;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  text-align: center;
+  justify-content: center;
+  display: flex;
+  align-items: center;
+}
+
+.action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 会议详情模态框的滚动条样式 */
+.meeting-summary-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.meeting-summary-content::-webkit-scrollbar-track {
+  background: #f5f5f5;
+  border-radius: 3px;
+}
+
+.meeting-summary-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 172, 193, 0.3);
+  border-radius: 3px;
+}
+
+.meeting-summary-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 172, 193, 0.5);
 }
 </style>

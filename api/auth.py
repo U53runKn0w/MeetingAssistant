@@ -20,3 +20,18 @@ def login():
         return jsonify(access_token=access_token), 200
 
     return jsonify({"msg": "用户名或密码错误"}), 401
+
+
+@bp.route("/api/user/info", methods=["GET"])
+@jwt_required()
+def get_user_info():
+    username = get_jwt_identity()
+    user = db.get_user(username)
+    if user:
+        return jsonify({
+            "user_id": user["user_id"],
+            "username": user["username"],
+            "nickname": user.get("nickname"),
+            "role": user.get("role")
+        }), 200
+    return jsonify({"msg": "用户不存在"}), 404

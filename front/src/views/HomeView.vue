@@ -12,7 +12,7 @@
         <MyInfo></MyInfo>
 
         <div class="row g-4">
-          <MeetingInput></MeetingInput>
+          <MeetingInput ref="meetingInputRef"></MeetingInput>
           <ChatBox ref="chatBoxRef" @refresh-history="refreshHistory"></ChatBox>
           <ChatTools ref="chatToolsRef"></ChatTools>
         </div>
@@ -22,7 +22,7 @@
 </template>
 
 <script setup>
-import {ref} from 'vue';
+import {ref, onMounted, onUnmounted} from 'vue';
 import MyInfo from "@/components/MyInfo.vue";
 import MeetingInput from "@/components/MeetingInput.vue";
 import ChatBox from "@/components/ChatBox.vue";
@@ -32,6 +32,7 @@ import History from "@/components/History.vue";
 const historyRef = ref(null);
 const chatBoxRef = ref(null);
 const chatToolsRef = ref(null);
+const meetingInputRef = ref(null);
 
 const refreshHistory = () => {
   if (historyRef.value) {
@@ -56,6 +57,23 @@ const handleSettingsChanged = (newSettings) => {
     chatToolsRef.value.loadSettings();
   }
 };
+
+// 处理会议纪要填入事件
+const handleFillMeetingSummary = (event) => {
+  const { summary } = event.detail;
+  if (meetingInputRef.value && summary) {
+    meetingInputRef.value.fillMeetingText(summary);
+  }
+};
+
+// 组件挂载和卸载时添加/移除事件监听
+onMounted(() => {
+  window.addEventListener('fillMeetingSummary', handleFillMeetingSummary);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('fillMeetingSummary', handleFillMeetingSummary);
+});
 </script>
 
 <style scoped></style>
