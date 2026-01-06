@@ -664,12 +664,75 @@ const saveTodoEdit = async (index) => {
 </script>
 
 <style scoped>
-.todo-list, .meeting-list, .preference-list {
-  min-height: 60px;
+/* 统一卡片容器高度 */
+.card {
+  min-height: 180px;
+  max-height: 180px;
+  transition: transform 0.2s;
+  cursor: pointer;
+  overflow: hidden;
 }
 
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* 卡片主体 */
+.card-body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 1.25rem;
+  overflow: hidden;
+}
+
+/* 卡片头部 */
+.card-header-custom {
+  flex-shrink: 0;
+  margin-bottom: 12px;
+}
+
+/* 统一列表容器 */
+.todo-list,
+.meeting-list,
+.preference-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  max-height: 140px;
+}
+
+/* 滚动条样式 */
+.todo-list::-webkit-scrollbar,
+.meeting-list::-webkit-scrollbar,
+.preference-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.todo-list::-webkit-scrollbar-track,
+.meeting-list::-webkit-scrollbar-track,
+.preference-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.todo-list::-webkit-scrollbar-thumb,
+.meeting-list::-webkit-scrollbar-thumb,
+.preference-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 2px;
+}
+
+.todo-list::-webkit-scrollbar-thumb:hover,
+.meeting-list::-webkit-scrollbar-thumb:hover,
+.preference-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* 统一列表项样式 */
 .meeting-preview-item {
-  padding: 6px 0;
+  padding: 8px 0;
   border-bottom: 1px dashed #e0e0e0;
 }
 
@@ -679,6 +742,7 @@ const saveTodoEdit = async (index) => {
 
 .meeting-preview-item .text-primary {
   font-size: 0.85rem;
+  margin-bottom: 2px;
 }
 
 .meeting-preview-item .text-secondary {
@@ -686,6 +750,30 @@ const saveTodoEdit = async (index) => {
   line-height: 1.3;
 }
 
+/* 待办列表项 */
+.todo-list > div {
+  padding: 8px 0;
+  border-bottom: 1px dashed #e0e0e0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.todo-list > div:last-child {
+  border-bottom: none;
+}
+
+/* 偏好列表项 */
+.preference-list > div {
+  padding: 8px 0;
+  border-bottom: 1px dashed #e0e0e0;
+}
+
+.preference-list > div:last-child {
+  border-bottom: none;
+}
+
+/* 更多提示 */
 .more-meetings {
   cursor: pointer;
   transition: opacity 0.2s;
@@ -696,19 +784,16 @@ const saveTodoEdit = async (index) => {
   opacity: 0.7;
 }
 
+/* 卡片标题 */
 .card-subtitle {
   font-size: 0.85rem;
   letter-spacing: 0.5px;
 }
 
-/* 鼠标悬停微动效果 */
-.col-md-4 .card {
-  transition: transform 0.2s;
-  cursor: pointer;
-}
-
-.col-md-4 .card:hover {
-  transform: translateY(-5px);
+/* 统一徽章样式 */
+.badge {
+  font-size: 0.75rem;
+  padding: 0.35em 0.65em;
 }
 
 /* 全屏弹窗样式 */

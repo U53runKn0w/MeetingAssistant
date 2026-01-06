@@ -14,10 +14,12 @@
         <div class="row g-4">
           <MeetingInput ref="meetingInputRef"></MeetingInput>
           <ChatBox ref="chatBoxRef" @refresh-history="refreshHistory"></ChatBox>
-          <ChatTools ref="chatToolsRef"></ChatTools>
+          <ChatTools ref="chatToolsRef" @show-result="handleShowResult"></ChatTools>
         </div>
       </div>
     </div>
+
+    <ResultModal ref="resultModalRef"></ResultModal>
   </div>
 </template>
 
@@ -28,11 +30,13 @@ import MeetingInput from "@/components/MeetingInput.vue";
 import ChatBox from "@/components/ChatBox.vue";
 import ChatTools from "@/components/ChatTools.vue";
 import History from "@/components/History.vue";
+import ResultModal from "@/components/ResultModal.vue";
 
 const historyRef = ref(null);
 const chatBoxRef = ref(null);
 const chatToolsRef = ref(null);
 const meetingInputRef = ref(null);
+const resultModalRef = ref(null);
 
 const refreshHistory = () => {
   if (historyRef.value) {
@@ -64,6 +68,12 @@ const handleNewSession = () => {
 const handleSettingsChanged = (newSettings) => {
   if (chatToolsRef.value) {
     chatToolsRef.value.loadSettings();
+  }
+};
+
+const handleShowResult = () => {
+  if (resultModalRef.value) {
+    resultModalRef.value.openModal();
   }
 };
 

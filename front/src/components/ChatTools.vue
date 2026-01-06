@@ -8,8 +8,8 @@
     </button>
     &nbsp;&nbsp;&nbsp;&nbsp;
     <button @click="toResult" class="btn btn-outline-primary px-5 py-2 rounded-pill">
-      <i class="bi bi-arrow-right me-2"></i>
-      前往结果页面
+      <i class="bi bi-clipboard-data me-2"></i>
+      查看分析结果
     </button>
   </div>
 
@@ -128,7 +128,6 @@
 <script setup>
 import {onMounted, ref, watch} from "vue";
 import mermaid from 'mermaid';
-import router from "@/router/index.js";
 import {storeToRefs} from "pinia";
 import {useChatStore} from "@/store/chat.js";
 import {fetchEventSource} from "@microsoft/fetch-event-source";
@@ -143,6 +142,9 @@ const mermaidContainer = ref(null);
 const chat = useChatStore();
 const {buttonsShow} = storeToRefs(chat);
 const messageStore = useMessageStore();
+
+// 定义 emit 事件
+const emit = defineEmits(['showResult']);
 const abortController = ref(null);
 const renderTimer = ref(null);
 
@@ -210,6 +212,8 @@ onMounted(() => {
 })
 
 const toResult = async () => {
+  // 触发自定义事件，让父组件打开结果模态框
+  emit('showResult');
   await router.push('/result');
 }
 
