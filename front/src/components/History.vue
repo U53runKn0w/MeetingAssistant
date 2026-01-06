@@ -233,12 +233,15 @@ const selectSession = async (item) => {
     chat.question = item.title;
     chat.text = item.meeting;
 
-    // 检查是否有 Final Answer 来决定 isHistorySession
+    // 检查是否有 Final Answer 来决定 isHistorySession 和是否显示按钮
     const hasFinalAnswer = chat.messages.some(msg => msg.type === 'Final Answer');
     chat.isHistorySession = hasFinalAnswer;
 
-    if (chat.messages.length > 0 && chat.question.length > 0) {
+    // 只有在有 Final Answer 时才显示按钮
+    if (hasFinalAnswer && chat.question.length > 0) {
       chat.buttonsShow = true;
+    } else {
+      chat.buttonsShow = false;
     }
 
     // 通知父组件会话已加载完成，需要滚动到底部

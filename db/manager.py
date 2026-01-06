@@ -135,7 +135,7 @@ class MeetingDB:
                 "subject": meeting.subject,
                 "start_time": meeting.start_time.isoformat(),
                 "duration": meeting.duration,
-                "summary": meeting.summary,
+                # "summary": meeting.summary,
                 "status": meeting.status,
                 "attendees": [a.name for a in meeting.attendees],
                 "todos": [{"task": t.task, "owner": t.owner} for t in meeting.todos]
