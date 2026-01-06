@@ -172,6 +172,16 @@ class MeetingDB:
             prefs = session.execute(stmt).scalars().all()
             return {p.category: p.preference for p in prefs}
 
+    def delete_user_preference(self, user_id: int, category: str):
+        with self.SessionLocal() as session:
+            stmt = select(Preference).where(Preference.user_id == user_id, Preference.category == category)
+            pref = session.execute(stmt).scalar_one_or_none()
+            if pref:
+                session.delete(pref)
+                session.commit()
+                return True
+            return False
+
     def get_history_list(self, user_id: int) -> List[Dict]:
         """获取侧边栏简易列表"""
         with self.SessionLocal() as session:

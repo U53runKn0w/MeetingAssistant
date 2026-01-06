@@ -257,5 +257,22 @@ def update_preference():
         return jsonify({"code": 500, "message": str(e)}), 500
 
 
+# 删除偏好
+@app.route('/api/preferences/<category>', methods=['DELETE'])
+@jwt_required()
+def delete_preference(category):
+    username = get_jwt_identity()
+    user_id = db.get_user_id(username)
+
+    if not category:
+        return jsonify({"code": 400, "message": "缺少分类"}), 400
+
+    try:
+        db.delete_user_preference(user_id, category)
+        return jsonify({"code": 200, "message": "偏好已删除"}), 200
+    except Exception as e:
+        return jsonify({"code": 500, "message": str(e)}), 500
+
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

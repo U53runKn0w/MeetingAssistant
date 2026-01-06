@@ -108,15 +108,62 @@
               </template>
 
               <template v-if="activeType === 'preference'">
-                <div class="pref-label">{{ item.category }}</div>
-                <div class="pref-value">{{ item.value }}</div>
+                <div v-if="editingIndex === index" class="edit-mode w-100">
+                  <div class="d-flex align-items-center gap-2 w-100">
+                    <input v-model="editCategory" class="form-control form-control-sm" placeholder="分类" />
+                    <input v-model="editValue" class="form-control form-control-sm" placeholder="值" />
+                    <button class="btn btn-sm btn-success" @click="saveEdit(index)">
+                      <i class="bi bi-check"></i>
+                    </button>
+                    <button class="btn btn-sm btn-secondary" @click="cancelEdit">
+                      <i class="bi bi-x"></i>
+                    </button>
+                  </div>
+                </div>
+                <template v-else class="w-100">
+                  <div class="pref-content-wrapper w-100">
+                    <div class="pref-label" @dblclick="startEdit(index, item)">{{ item.category }}</div>
+                    <div class="pref-value" @dblclick="startEdit(index, item)">{{ item.value }}</div>
+                    <button class="btn btn-sm btn-outline-danger delete-btn" @click="deletePreference(index)" title="删除">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </template>
               </template>
             </div>
             <div v-if="activeType === 'preference'" class="text-center mt-4">
-              <button class="btn btn-outline-success rounded-pill px-4" @click="openSubModal">
+              <button class="btn btn-outline-success rounded-pill px-4 me-2" @click="openSubModal">
                 <i class="bi bi-gear-fill me-1"></i> 生成偏好
               </button>
+              <button class="btn btn-outline-primary rounded-pill px-4" @click="openAddModal">
+                <i class="bi bi-plus-circle me-1"></i> 手动添加
+              </button>
             </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 添加偏好模态框 -->
+    <Transition name="fade">
+      <div v-if="isAddModalOpen" class="glass-overlay sub-modal-overlay" @click.self="isAddModalOpen = false">
+        <div class="glass-modal animate__animated animate__zoomIn">
+          <div class="modal-header-custom">
+            <h5 class="fw-bold mb-0">手动添加偏好</h5>
+            <button class="close-pill" @click="isAddModalOpen = false">返回</button>
+          </div>
+          <div class="modal-body-custom">
+            <div class="mb-3">
+              <label class="form-label">偏好分类</label>
+              <input v-model="newPreference.category" type="text" class="form-control" placeholder="例如: 主题、字体大小" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">偏好值</label>
+              <input v-model="newPreference.value" type="text" class="form-control" placeholder="例如: 暗黑模式、16px" />
+            </div>
+            <button class="btn btn-primary w-100" @click="addPreference" :disabled="!newPreference.category || !newPreference.value">
+              添加
+            </button>
           </div>
         </div>
       </div>
@@ -156,6 +203,19 @@ const myData = ref({
   meetings: [],
   nextMeeting: null,
   preferences: []
+});
+
+// 编辑相关
+const editingIndex = ref(-1);
+const editCategory = ref('');
+const editValue = ref('');
+const editItem = ref(null);
+
+// 添加偏好相关
+const isAddModalOpen = ref(false);
+const newPreference = ref({
+  category: '',
+  value: ''
 });
 
 const messageStore = useMessageStore();
@@ -272,6 +332,80 @@ const openSubModal = () => {
 const closeMainModal = () => {
   isModalOpen.value = false;
   isSubModalOpen.value = false;
+};
+
+// 编辑偏好功能
+const startEdit = (index, item) => {
+  editingIndex.value = index;
+  editItem.value = {...item};
+  editCategory.value = item.category;
+  editValue.value = item.value;
+};
+
+const saveEdit = async (index) => {
+  if (!editCategory.value.trim() || !editValue.value.trim()) return;
+
+  try {
+    // 删除旧的偏好
+    await service.delete(`/preferences/${myData.value.preferences[index].category}`);
+    // 添加新的偏好（使用新的分类名）
+    await service.post('/preferences', {
+      category: editCategory.value,
+      value: editValue.value
+    });
+    // 重新获取数据
+    await fetchData();
+    editingIndex.value = -1;
+    editItem.value = null;
+    editCategory.value = '';
+    editValue.value = '';
+  } catch (error) {
+    console.error('更新偏好失败:', error);
+    messageStore.setError('更新偏好失败，请稍后重试');
+  }
+};
+
+const cancelEdit = () => {
+  editingIndex.value = -1;
+  editItem.value = null;
+  editCategory.value = '';
+  editValue.value = '';
+};
+
+// 添加偏好功能
+const openAddModal = () => {
+  newPreference.value = {category: '', value: ''};
+  isAddModalOpen.value = true;
+};
+
+const addPreference = async () => {
+  if (!newPreference.value.category.trim() || !newPreference.value.value.trim()) return;
+
+  try {
+    await service.post('/preferences', {
+      category: newPreference.value.category,
+      value: newPreference.value.value
+    });
+    await fetchData();
+    isAddModalOpen.value = false;
+    newPreference.value = {category: '', value: ''};
+  } catch (error) {
+    console.error('添加偏好失败:', error);
+    messageStore.setError('添加偏好失败，请稍后重试');
+  }
+};
+
+// 删除偏好功能
+const deletePreference = async (index) => {
+  if (!confirm('确定要删除这个偏好吗？')) return;
+
+  try {
+    await service.delete(`/preferences/${myData.value.preferences[index].category}`);
+    myData.value.preferences.splice(index, 1);
+  } catch (error) {
+    console.error('删除偏好失败:', error);
+    messageStore.setError('删除偏好失败，请稍后重试');
+  }
 };
 </script>
 
@@ -503,11 +637,78 @@ const closeMainModal = () => {
   font-weight: bold;
   color: #666;
   width: 40%;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.pref-label:hover {
+  color: #43a047;
 }
 
 .pref-value {
   color: #333;
   font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.pref-value:hover {
+  color: #43a047;
+}
+
+/* 编辑模式样式 */
+.edit-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-mode input {
+  flex: 1;
+}
+
+/* 偏好内容容器 */
+.pref-content-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
+}
+
+.pref-label {
+  font-weight: bold;
+  color: #666;
+  min-width: 100px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.pref-label:hover {
+  color: #43a047;
+}
+
+.pref-value {
+  color: #333;
+  font-weight: 500;
+  flex: 1;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.pref-value:hover {
+  color: #43a047;
+}
+
+/* 删除按钮样式 */
+.delete-btn {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.detail-item-card:hover .delete-btn {
+  opacity: 1;
 }
 
 /* Vue 过渡动画 */
