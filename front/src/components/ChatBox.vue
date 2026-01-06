@@ -344,9 +344,18 @@ const stopGeneration = () => {
   chatStore.buttonsShow = true;
 };
 
-// 暴露 stopGeneration 方法供父组件调用
+const newSession = () => {
+  if (isGenerating.value) return;
+  messages.value = [];
+  chatStore.question = '';
+  chatStore.sessionId = '';
+  chatStore.buttonsShow = true;
+};
+
+// 暴露方法供父组件调用
 defineExpose({
-  stopGeneration
+  stopGeneration,
+  newSession
 });
 
 // 处理滚动事件

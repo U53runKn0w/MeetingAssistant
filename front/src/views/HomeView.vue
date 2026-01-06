@@ -1,6 +1,6 @@
 <template>
   <div class="d-flex min-vh-100">
-    <History ref="historyRef" @select-session="handleSelectSession"/>
+    <History ref="historyRef" @select-session="handleSelectSession" @new-session="handleNewSession"/>
 
     <div class="flex-grow-1 overflow-auto">
       <div class="container mt-5 mb-5">
@@ -41,6 +41,12 @@ const refreshHistory = () => {
 const handleSelectSession = () => {
   if (chatBoxRef.value) {
     chatBoxRef.value.stopGeneration();
+  }
+};
+
+const handleNewSession = () => {
+  if (chatBoxRef.value) {
+    chatBoxRef.value.newSession();
   }
 };
 </script>
