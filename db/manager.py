@@ -77,6 +77,22 @@ class MeetingDB:
                 "role": user.role
             } if user else None
 
+    def update_user(self, username: str, data: Dict) -> bool:
+        """更新用户信息"""
+        with self.SessionLocal() as session:
+            stmt = select(User).where(User.username == username)
+            user = session.execute(stmt).scalar_one_or_none()
+            if not user:
+                return False
+
+            if 'nickname' in data:
+                user.nickname = data['nickname']
+            if 'role' in data:
+                user.role = data['role']
+
+            session.commit()
+            return True
+
     def check_user(self, username: str, password: str):
         with self.SessionLocal() as session:
             stmt = select(User).where(User.username == username, User.password == password)

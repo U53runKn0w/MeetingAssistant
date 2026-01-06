@@ -35,3 +35,26 @@ def get_user_info():
             "role": user.get("role")
         }), 200
     return jsonify({"msg": "用户不存在"}), 404
+
+
+@bp.route("/api/user/info", methods=["PUT"])
+@jwt_required()
+def update_user_info():
+    username = get_jwt_identity()
+    data = request.json
+
+    if not data:
+        return jsonify({"msg": "无效的请求数据"}), 400
+
+    success = db.update_user(username, data)
+
+    if success:
+        user = db.get_user(username)
+        return jsonify({
+            "user_id": user["user_id"],
+            "username": user["username"],
+            "nickname": user.get("nickname"),
+            "role": user.get("role")
+        }), 200
+
+    return jsonify({"msg": "更新失败"}), 500

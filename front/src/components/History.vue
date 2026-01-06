@@ -89,7 +89,7 @@
     </div>
 
     <div class="sidebar-footer" v-show="!isCollapsed">
-      <div class="user-info">
+      <div class="user-info" @click="openEditModal">
         <div class="user-avatar">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
@@ -102,6 +102,12 @@
         </div>
       </div>
     </div>
+
+    <UserEditModal
+        v-model="isEditModalVisible"
+        :userInfo="userInfo"
+        @saved="handleUserSaved"
+    />
   </div>
 </template>
 
@@ -111,6 +117,7 @@ import service from "@/js/request.js";
 import {useChatStore} from "@/store/chat.js";
 import {storeToRefs} from "pinia";
 import ConfirmModal from "@/components/ConfirmModal.vue";
+import UserEditModal from "@/components/UserEditModal.vue";
 import {useMessageStore} from "@/store/error.js";
 
 const isCollapsed = ref(false);
@@ -176,6 +183,7 @@ function formatDate(dateString) {
 const isModalVisible = ref(false);
 const itemToDelete = ref(null);
 const isDeleting = ref(false);
+const isEditModalVisible = ref(false);
 
 const openDeleteModal = (item) => {
   itemToDelete.value = item;
@@ -196,6 +204,17 @@ const handleDelete = async () => {
   } finally {
     isDeleting.value = false;
   }
+};
+
+const openEditModal = () => {
+  isEditModalVisible.value = true;
+};
+
+const handleUserSaved = (updatedInfo) => {
+  userInfo.value = {
+    ...userInfo.value,
+    ...updatedInfo
+  };
 };
 const fetchHistory = async () => {
   loading.value = true;
@@ -587,6 +606,14 @@ defineExpose({
   gap: 10px;
   flex: 1;
   overflow: hidden;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition: background-color 0.15s;
+}
+
+.user-info:hover {
+  background: var(--sb-hover);
 }
 
 .user-avatar {
