@@ -5,10 +5,10 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import create_engine, select, inspect
 from sqlalchemy.orm import sessionmaker
 from typing import List, Dict, Optional
-from datetime import datetime, timezone
+from datetime import datetime
 
 from config import meeting
-from db.models import Base, User, Meeting, Attendee, Todo, Preference, ChatSession, DialogStep
+from db.models import User, Meeting, Attendee, Todo, Preference, ChatSession, DialogStep
 
 
 class MeetingDB:
@@ -120,7 +120,8 @@ class MeetingDB:
                     meeting_id=meeting_id,
                     owner=t["owner"],
                     task=t["task"],
-                    deadline=t.get("deadline"),
+                    # Accept either a datetime or an ISO string (coerce to datetime if needed)
+                    deadline=(t.get("deadline") if (not isinstance(t.get("deadline"), str)) else datetime.fromisoformat(t.get("deadline"))),
                     status=t.get("status", "pending")
                 ) for t in todos_data
             ]
@@ -136,7 +137,12 @@ class MeetingDB:
                     todo.user_id = t_data.get("user_id", todo.user_id)
                     todo.owner = t_data.get("owner", todo.owner)
                     todo.task = t_data.get("task", todo.task)
-                    todo.deadline = t_data.get("deadline", todo.deadline)
+                    # Coerce string ISO deadlines to datetime, keep existing if not provided
+                    if "deadline" in t_data:
+                        dl = t_data.get("deadline")
+                        todo.deadline = (dl if (not isinstance(dl, str)) else datetime.fromisoformat(dl))
+                    else:
+                        todo.deadline = todo.deadline
                     todo.status = t_data.get("status", todo.status)
 
             session.commit()
@@ -146,7 +152,7 @@ class MeetingDB:
             stmt = select(Todo).where(Todo.user_id == user_id).order_by(Todo.deadline.desc())
             results = session.execute(stmt).scalars().all()
             return [
-                {"todo_id": t.todo_id, "task": t.task, "deadline": t.deadline.isoformat(), "status": t.status}
+                {"todo_id": t.todo_id, "task": t.task, "deadline": (t.deadline.isoformat() if t.deadline else None), "status": t.status}
                 for t in results
             ]
 

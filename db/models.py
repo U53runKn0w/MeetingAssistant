@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import ForeignKey, String, Integer, DateTime, Boolean, Text, UniqueConstraint, func
+from sqlalchemy import ForeignKey, String, Integer, DateTime, Text, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -51,9 +51,10 @@ class Attendee(Base):
 class Todo(Base):
     __tablename__ = "todos"
 
-    user_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    # `todo_id` is the primary key; `user_id` should be a ForeignKey to users.user_id
     todo_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    meeting_id: Mapped[int] = mapped_column(ForeignKey("meetings.meeting_id", ondelete="CASCADE"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    meeting_id: Mapped[int] = mapped_column(ForeignKey("meetings.meeting_id", ondelete="CASCADE"), nullable=True)
     owner: Mapped[str] = mapped_column(String(100), nullable=False)
     task: Mapped[str] = mapped_column(Text, nullable=False)
     deadline: Mapped[Optional[datetime]] = mapped_column(DateTime)
