@@ -85,12 +85,21 @@ const handleFileUpload = async (event) => {
   formData.append('file', file);
 
   try {
-    // const response = await axios.post('http://localhost:5000/api/transcript', formData);
-    // meetingText.value = response.data.text;
+    const response = await fetch('http://localhost:5000/api/transcript', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: formData
+    });
+    const result = await response.json();
 
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    meetingText.value = dummyMeeting;
-    messageStore.setSuccess('音频转录成功');
+    if (result.code === 200) {
+      meetingText.value = result.text;
+      messageStore.setSuccess('音频转录成功');
+    } else {
+      messageStore.setInfo(result.message || '音频转录失败');
+    }
   } catch (err) {
     console.error('音频转录失败:', err);
     messageStore.setNetworkError('failed');
