@@ -96,6 +96,11 @@ const loadSettings = () => {
   reinitializeMermaid();
 };
 
+// 暴露 loadSettings 方法供父组件调用
+defineExpose({
+  loadSettings
+});
+
 // 重新初始化 Mermaid（应用主题设置）
 const reinitializeMermaid = () => {
   mermaid.initialize({

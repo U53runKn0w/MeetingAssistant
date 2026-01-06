@@ -1,6 +1,6 @@
 <template>
   <div class="d-flex min-vh-100">
-    <History ref="historyRef" @select-session="handleSelectSession" @new-session="handleNewSession"/>
+    <History ref="historyRef" @select-session="handleSelectSession" @new-session="handleNewSession" @settings-changed="handleSettingsChanged"/>
 
     <div class="flex-grow-1 overflow-auto">
       <div class="container mt-5 mb-5">
@@ -14,7 +14,7 @@
         <div class="row g-4">
           <MeetingInput></MeetingInput>
           <ChatBox ref="chatBoxRef" @refresh-history="refreshHistory"></ChatBox>
-          <ChatTools></ChatTools>
+          <ChatTools ref="chatToolsRef"></ChatTools>
         </div>
       </div>
     </div>
@@ -31,6 +31,7 @@ import History from "@/components/History.vue";
 
 const historyRef = ref(null);
 const chatBoxRef = ref(null);
+const chatToolsRef = ref(null);
 
 const refreshHistory = () => {
   if (historyRef.value) {
@@ -47,6 +48,12 @@ const handleSelectSession = () => {
 const handleNewSession = () => {
   if (chatBoxRef.value) {
     chatBoxRef.value.newSession();
+  }
+};
+
+const handleSettingsChanged = (newSettings) => {
+  if (chatToolsRef.value) {
+    chatToolsRef.value.loadSettings();
   }
 };
 </script>
