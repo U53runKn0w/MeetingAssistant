@@ -36,10 +36,13 @@
 
           <details class="mt-2" v-if="mindMapData">
             <summary class="small text-muted cursor-pointer">查看 Mermaid 源码</summary>
-            <pre class="small bg-light p-2 mt-1"><code>{{ mindMapData }}</code></pre>
+            <pre class="small bg-light p-2 mt-1 source-code-container"><code>{{ mindMapData }}</code></pre>
           </details>
         </div>
         <div class="modal-footer">
+          <button v-if="isMindMapLoading" @click="stopGeneration" class="btn btn-outline-danger me-auto">
+            <i class="bi bi-stop-circle me-1"></i> 停止生成
+          </button>
           <button class="btn btn-outline-primary" @click="downloadMindMap" :disabled="!mindMapData">
             <i class="bi bi-download me-1"></i> 导出源码 (.mmd)
           </button>
@@ -68,6 +71,8 @@ const mermaidContainer = ref(null);
 const chat = useChatStore();
 const {buttonsShow} = storeToRefs(chat);
 const messageStore = useMessageStore();
+const abortController = ref(null);
+const renderTimer = ref(null);
 
 onMounted(() => {
   if (chat.messages.length > 0 && chat.question.length > 0) {
@@ -77,6 +82,19 @@ onMounted(() => {
 
 const toResult = async () => {
   await router.push('/result');
+}
+
+const stopGeneration = () => {
+  if (abortController.value) {
+    abortController.value.abort();
+    abortController.value = null;
+  }
+  if (renderTimer.value) {
+    clearInterval(renderTimer.value);
+    renderTimer.value = null;
+  }
+  isMindMapLoading.value = false;
+  messageStore.setError('已停止生成思维导图');
 }
 
 mermaid.initialize({
@@ -111,7 +129,7 @@ const generateMindMap = async () => {
   mindMapData.value = "";
 
   const ctrl = new AbortController();
-  let timer;
+  abortController.value = ctrl;
 
   try {
     await fetchEventSource(mindMapUrl, {
@@ -129,7 +147,7 @@ const generateMindMap = async () => {
             await router.push('/login');
           }
         } else {
-          timer = setInterval(() => {
+          renderTimer.value = setInterval(() => {
             renderMermaid();
           }, 500);
         }
@@ -142,13 +160,20 @@ const generateMindMap = async () => {
         } else if (data.type === 'done') {
           isMindMapLoading.value = false;
           renderMermaid();
+          if (renderTimer.value) {
+            clearInterval(renderTimer.value);
+            renderTimer.value = null;
+          }
           ctrl.abort();
         }
       },
 
       onclose: () => {
         isMindMapLoading.value = false;
-        clearInterval(timer);
+        if (renderTimer.value) {
+          clearInterval(renderTimer.value);
+          renderTimer.value = null;
+        }
         console.log("连接正常关闭");
       },
 
@@ -156,13 +181,18 @@ const generateMindMap = async () => {
         console.error("SSE异常:", err);
         messageStore.setError('连接中断，请检查后端服务。');
         isMindMapLoading.value = false;
+        abortController.value = null;
+        if (renderTimer.value) {
+          clearInterval(renderTimer.value);
+          renderTimer.value = null;
+        }
         ctrl.abort();
-        clearInterval(timer);
         throw err;
       }
     });
   } catch (err) {
     isMindMapLoading.value = false;
+    abortController.value = null;
   }
 };
 
@@ -233,4 +263,11 @@ summary {
   height: auto;
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
 }
+
+/* 源码容器滚动条 */
+.source-code-container {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
 </style>
