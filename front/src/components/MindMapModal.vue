@@ -103,6 +103,21 @@ const renderMermaid = async () => {
         props.mindMapData
     );
     mermaidContainer.value.innerHTML = svg;
+
+    // 渲染完成后，移除 document.body 末尾的 Mermaid 错误元素
+    setTimeout(() => {
+      // 查找整个页面中 id 以 dmermaid-svg- 开头的元素
+      const mermaidDivs = document.querySelectorAll('[id^="dmermaid-svg-"]');
+
+      mermaidDivs.forEach(mermaidDiv => {
+        // 检查内部 SVG 是否有错误标识
+        const svgElement = mermaidDiv.querySelector('svg');
+        if (svgElement && svgElement.getAttribute('aria-roledescription') === 'error') {
+          // 是错误状态，移除整个元素
+          mermaidDiv.remove();
+        }
+      });
+    }, 0);
   } catch (e) {
     console.warn(e);
   }
