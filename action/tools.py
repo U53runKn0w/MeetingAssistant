@@ -75,7 +75,7 @@ shared_llm = ChatDeepSeek(model="deepseek-chat", temperature=0, streaming=True)
 @tool
 def extract_meeting_basic_info(text: str) -> dict:
     """
-    【适用场景】当需要初始化会议纪要的头部信息（主题、时间、人员、时长）时使用。
+    【适用场景】每次提问都必须使用，获取初始化会议纪要的头部信息（主题、时间、人员、时长）。
     【调用时机】通常在处理会议录音开场白或会议通知文本时首先调用。
     【参数要求】text 应为会议的前 5-10% 内容或包含自我介绍的关键片段。
     【返回内容】返回包含 attendees(list), time(ISO string), subject(str), duration(str) 的字典。
