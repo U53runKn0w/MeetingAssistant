@@ -40,6 +40,8 @@ class Meeting(Base):
     user: Mapped["User"] = relationship(back_populates="meetings")
     attendees: Mapped[List["Attendee"]] = relationship(back_populates="meeting", cascade="all, delete-orphan")
     todos: Mapped[List["Todo"]] = relationship(back_populates="meeting", cascade="all, delete-orphan")
+    agenda_conclusions: Mapped[List["AgendaConclusion"]] = relationship(cascade="all, delete-orphan")
+    follow_ups: Mapped[List["FollowUp"]] = relationship(cascade="all, delete-orphan")
 
 
 class Attendee(Base):
@@ -65,6 +67,25 @@ class Todo(Base):
     status: Mapped[str] = mapped_column(String(20), default="pending")
 
     meeting: Mapped["Meeting"] = relationship(back_populates="todos")
+
+
+class AgendaConclusion(Base):
+    __tablename__ = "agenda_conclusions"
+
+    agenda_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    meeting_id: Mapped[int] = mapped_column(ForeignKey("meetings.meeting_id", ondelete="CASCADE"))
+    agenda: Mapped[str] = mapped_column(Text, nullable=False)
+    conclusion: Mapped[Optional[str]] = mapped_column(Text)
+
+
+class FollowUp(Base):
+    __tablename__ = "follow_ups"
+
+    follow_up_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    meeting_id: Mapped[int] = mapped_column(ForeignKey("meetings.meeting_id", ondelete="CASCADE"))
+    topic: Mapped[str] = mapped_column(Text, nullable=False)
+    reason: Mapped[Optional[str]] = mapped_column(Text)
+    is_resolved: Mapped[bool] = mapped_column(default=False)
 
 
 class Preference(Base):

@@ -8,7 +8,7 @@ from typing import List, Dict, Optional
 from datetime import datetime
 
 from config import meeting
-from db.models import User, Meeting, Attendee, Todo, Preference, ChatSession, DialogStep
+from db.models import User, Meeting, Attendee, Todo, Preference, ChatSession, DialogStep, AgendaConclusion, FollowUp
 
 
 class MeetingDB:
@@ -108,6 +108,7 @@ class MeetingDB:
                     attendees: Optional[List[str]] = None,
                     summary: Optional[str] = None,
                     status: str = "scheduled") -> int:
+        """创建新会议并返回 meeting_id"""
         with self.SessionLocal() as session:
             m = Meeting(
                 user_id=user_id,
@@ -123,6 +124,7 @@ class MeetingDB:
             session.add(m)
             session.commit()
             return m.meeting_id
+
 
     def get_user_meetings(self, user_id: int) -> List[Dict]:
         with self.SessionLocal() as session:
@@ -151,10 +153,18 @@ class MeetingDB:
                 "subject": meeting.subject,
                 "start_time": meeting.start_time.isoformat(),
                 "duration": meeting.duration,
-                # "summary": meeting.summary,
+                "summary": meeting.summary,
                 "status": meeting.status,
                 "attendees": [a.name for a in meeting.attendees],
-                "todos": [{"task": t.task, "owner": t.owner} for t in meeting.todos]
+                "todos": [{"task": t.task, "owner": t.owner} for t in meeting.todos],
+                "agenda_conclusions": [
+                    {"agenda": ac.agenda, "conclusion": ac.conclusion}
+                    for ac in meeting.agenda_conclusions
+                ],
+                "follow_ups": [
+                    {"topic": f.topic, "reason": f.reason, "is_resolved": f.is_resolved}
+                    for f in meeting.follow_ups
+                ]
             }
 
     def update_meeting_summary(self, meeting_id: int, user_id: int, summary: str, status: str = "completed") -> bool:
@@ -168,6 +178,158 @@ class MeetingDB:
             meeting.status = status
             session.commit()
             return True
+
+    def find_meeting_by_subject(self, user_id: int, subject: str) -> Optional[int]:
+        """根据会议主题（去除空格）查找会议ID，如果找到返回meeting_id，否则返回None"""
+        normalized_subject = subject.replace(" ", "")
+        with self.SessionLocal() as session:
+            # 查找所有该用户的会议，然后过滤去除空格后的subject
+            stmt = select(Meeting).where(Meeting.user_id == user_id)
+            meetings = session.execute(stmt).scalars().all()
+            for meeting in meetings:
+                if meeting.subject.replace(" ", "") == normalized_subject:
+                    return meeting.meeting_id
+            return None
+
+    def save_meeting_results(self, user_id: int, data: Dict) -> Dict:
+        """
+        保存会议分析结果到数据库
+        :param user_id: 用户ID（必须是整数ID，不是username）
+        :param data: 包含会议基本信息、议程结论、待办事项、跟进事项的字典
+        :return: 包含 meeting_id 的结果
+        """
+        summary = data.get("summary", "")
+        basic_info = data.get("basic_info", {})
+        agendas = data.get("agendas", [])
+        todos = data.get("todos", [])
+        follow_ups = data.get("follow_ups", [])
+
+        subject = basic_info.get("subject", "未命名会议")
+
+        with self.SessionLocal() as session:
+            # 1. 根据subject（去除空格）查找或创建会议
+            meeting_id = self.find_meeting_by_subject(user_id, subject)
+
+            if meeting_id is None:
+                # 创建新会议
+                m = Meeting(
+                    user_id=user_id,
+                    subject=subject,
+                    start_time=datetime.fromisoformat(basic_info.get("time", datetime.now().isoformat())),
+                    duration=self._parse_duration(basic_info.get("duration", "0")),
+                    summary=summary,
+                    status="completed"
+                )
+                session.add(m)
+                session.flush()  # 获取 meeting_id
+
+                # 添加参会人员
+                attendees = basic_info.get("attendees", [])
+                if attendees:
+                    m.attendees = [Attendee(name=name) for name in attendees]
+
+                meeting_id = m.meeting_id
+            else:
+                # 更新现有会议信息
+                stmt = select(Meeting).where(Meeting.meeting_id == meeting_id)
+                meeting = session.execute(stmt).scalar_one_or_none()
+                if meeting:
+                    meeting.subject = subject
+                    meeting.start_time = datetime.fromisoformat(basic_info.get("time", meeting.start_time.isoformat()))
+                    meeting.duration = self._parse_duration(basic_info.get("duration", str(meeting.duration)))
+                    meeting.status = "completed"
+
+                    # 更新参会人员（先删除旧的，再添加新的）
+                    stmt = select(Attendee).where(Attendee.meeting_id == meeting_id)
+                    for attendee in session.execute(stmt).scalars():
+                        session.delete(attendee)
+                    session.flush()
+
+                    attendees = basic_info.get("attendees", [])
+                    if attendees:
+                        meeting.attendees = [Attendee(name=name) for name in attendees]
+
+            # 2. 删除旧的议程结论并添加新的
+            stmt = select(AgendaConclusion).where(AgendaConclusion.meeting_id == meeting_id)
+            for ac in session.execute(stmt).scalars():
+                session.delete(ac)
+            session.flush()
+
+            for agenda_item in agendas:
+                ac = AgendaConclusion(
+                    meeting_id=meeting_id,
+                    agenda=agenda_item.get("agenda", ""),
+                    conclusion=agenda_item.get("conclusion", "")
+                )
+                session.add(ac)
+
+            # 3. 添加待办事项
+            for todo_item in todos:
+                t = Todo(
+                    user_id=user_id,
+                    meeting_id=meeting_id,
+                    owner=todo_item.get("owner", ""),
+                    task=todo_item.get("task", ""),
+                    deadline=self._parse_deadline(todo_item.get("deadline")),
+                    status="pending"
+                )
+                session.add(t)
+
+            # 4. 删除旧的跟进事项并添加新的
+            stmt = select(FollowUp).where(FollowUp.meeting_id == meeting_id)
+            for fu in session.execute(stmt).scalars():
+                session.delete(fu)
+            session.flush()
+
+            for follow_item in follow_ups:
+                f = FollowUp(
+                    meeting_id=meeting_id,
+                    topic=follow_item.get("topic", ""),
+                    reason=follow_item.get("reason", ""),
+                    is_resolved=False
+                )
+                session.add(f)
+
+            session.commit()
+            return {"meeting_id": meeting_id, "status": "success"}
+
+    @staticmethod
+    def _parse_duration(duration_str: str) -> Optional[int]:
+        """解析时长字符串，返回分钟数"""
+        if not duration_str:
+            return None
+        try:
+            # 尝试提取数字
+            import re
+            numbers = re.findall(r'\d+', duration_str)
+            if numbers:
+                return int(numbers[0])
+            return None
+        except:
+            return None
+
+    @staticmethod
+    def _parse_deadline(deadline_str: Optional[str]) -> Optional[datetime]:
+        """解析截止时间字符串"""
+        if not deadline_str:
+            return None
+        try:
+            # 尝试多种时间格式
+            for fmt in [
+                "%Y-%m-%d",
+                "%Y-%m-%d %H:%M",
+                "%Y-%m-%d %H:%M:%S",
+                "%Y年%m月%d日",
+                "%Y/%m/%d"
+            ]:
+                try:
+                    return datetime.strptime(deadline_str, fmt)
+                except ValueError:
+                    continue
+            # 尝试 ISO 格式
+            return datetime.fromisoformat(deadline_str)
+        except:
+            return None
 
     # --- 待办事项批量操作 ---
     def add_todos(self, user_id: int, meeting_id: int, todos_data: List[Dict]) -> None:

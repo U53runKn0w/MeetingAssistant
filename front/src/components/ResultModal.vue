@@ -8,6 +8,33 @@
           <button type="button" class="btn-close btn-close-white" @click="closeModal"></button>
         </div>
         <div class="modal-body overflow-auto p-4">
+          <!-- 保存选项 -->
+          <div class="alert alert-info mb-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="saveBasicInfo" v-model="saveOptions.basicInfo">
+              <label class="form-check-label" for="saveBasicInfo">
+                <strong>会议基本信息</strong> (主题、时间、参会人员)
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="saveAgendas" v-model="saveOptions.agendas">
+              <label class="form-check-label" for="saveAgendas">
+                <strong>议程与结论</strong> ({{ selectedAgendas.length }}/{{ results.parse_meeting_agenda_conclusion?.length || 0 }} 项)
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="saveTodos" v-model="saveOptions.todos">
+              <label class="form-check-label" for="saveTodos">
+                <strong>待办事项</strong> ({{ selectedTodos.length }}/{{ results.generate_meeting_todo?.length || 0 }} 项)
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="saveFollowUps" v-model="saveOptions.followUps">
+              <label class="form-check-label" for="saveFollowUps">
+                <strong>跟进事项</strong> ({{ selectedFollowUps.length }}/{{ results.mark_meeting_follow_up?.length || 0 }} 项)
+              </label>
+            </div>
+          </div>
           <div class="container-fluid">
             <div class="row row-cols-1 row-cols-md-2 g-4">
               <div v-for="(data, key) in results" :key="key" class="col">
@@ -37,14 +64,33 @@
 
                     <div v-else-if="key === 'parse_meeting_agenda_conclusion'" class="agenda-list">
                       <div v-for="(item, index) in data" :key="index" class="agenda-item border-bottom pb-2 mb-2">
-                        <div class="fw-bold text-primary mb-1 small"><i class="bi bi-dot"></i> {{ item.agenda }}</div>
-                        <div class="ps-3 text-secondary small">{{ item.conclusion }}</div>
+                        <div class="d-flex align-items-start">
+                          <div class="me-2 mt-1">
+                            <input
+                                type="checkbox"
+                                class="form-check-input"
+                                :checked="selectedAgendas.includes(index)"
+                                @change="toggleAgenda(index)"
+                            >
+                          </div>
+                          <div class="flex-grow-1">
+                            <div class="fw-bold text-primary mb-1 small"><i class="bi bi-dot"></i> {{ item.agenda }}</div>
+                            <div class="ps-3 text-secondary small">{{ item.conclusion }}</div>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
                     <div v-else-if="key === 'generate_meeting_todo'" class="todo-list">
                       <div v-for="(todo, index) in data" :key="index" class="d-flex align-items-start mb-3 todo-item">
-                        <div class="todo-check me-2 mt-1"><i class="bi bi-check2-square text-warning"></i></div>
+                        <div class="todo-check me-2 mt-1">
+                          <input
+                              type="checkbox"
+                              class="form-check-input"
+                              :checked="selectedTodos.includes(index)"
+                              @change="toggleTodo(index)"
+                          >
+                        </div>
                         <div>
                           <div class="fw-bold small">{{ todo.task }}</div>
                           <div class="text-muted extra-small">
@@ -56,8 +102,20 @@
 
                     <div v-else-if="key === 'mark_meeting_follow_up'" class="follow-up-list">
                       <div v-for="(follow, index) in data" :key="index" class="mb-3">
-                        <div class="fw-bold small text-info"><i class="bi bi-question-circle me-1"></i> {{ follow.topic }}</div>
-                        <div class="ps-3 border-start ms-1 text-muted small mt-1">{{ follow.reason }}</div>
+                        <div class="d-flex align-items-start">
+                          <div class="me-2 mt-1">
+                            <input
+                                type="checkbox"
+                                class="form-check-input"
+                                :checked="selectedFollowUps.includes(index)"
+                                @change="toggleFollowUp(index)"
+                            >
+                          </div>
+                          <div class="flex-grow-1">
+                            <div class="fw-bold small text-info"><i class="bi bi-question-circle me-1"></i> {{ follow.topic }}</div>
+                            <div class="ps-3 border-start ms-1 text-muted small mt-1">{{ follow.reason }}</div>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -74,6 +132,11 @@
           <button class="btn btn-outline-primary px-5 py-2 rounded-pill" @click="closeModal">
             <i class="bi bi-x-lg me-2"></i>关闭
           </button>
+          <button class="btn btn-primary px-5 py-2 rounded-pill" @click="saveResults" :disabled="isSaving">
+            <span v-if="isSaving" class="spinner-border spinner-border-sm me-1"></span>
+            <span v-else><i class="bi bi-save me-1"></i></span>
+            保存到数据库
+          </button>
         </div>
       </div>
     </div>
@@ -83,8 +146,11 @@
 <script setup>
 import {ref, watch} from 'vue';
 import {useChatStore} from "@/store/chat.js";
+import {useMessageStore} from "@/store/error.js";
 
 const showModal = ref(false);
+const isSaving = ref(false);
+const messageStore = useMessageStore();
 
 const results = ref({
   extract_meeting_basic_info: null,
@@ -93,6 +159,19 @@ const results = ref({
   mark_meeting_follow_up: null
 });
 
+// 保存选项
+const saveOptions = ref({
+  basicInfo: true,
+  agendas: true,
+  todos: true,
+  followUps: true
+});
+
+// 选中的待办事项和跟进事项索引
+const selectedTodos = ref([]);
+const selectedFollowUps = ref([]);
+const selectedAgendas = ref([]);
+
 const toolConfigs = {
   extract_meeting_basic_info: {name: "会议基本信息", icon: "bi-info-circle-fill", class: "bg-primary"},
   parse_meeting_agenda_conclusion: {name: "议程与结论", icon: "bi-journal-check", class: "bg-success"},
@@ -100,20 +179,109 @@ const toolConfigs = {
   mark_meeting_follow_up: {name: "跟进事项", icon: "bi-exclamation-diamond-fill", class: "bg-info text-white"}
 };
 
-// 工具函数：格式化时间
-const formatDateTime = (dateStr) => {
-  if (!dateStr) return '';
-  const date = new Date(dateStr);
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+// 切换议程选择
+const toggleAgenda = (index) => {
+  const idx = selectedAgendas.value.indexOf(index);
+  if (idx > -1) {
+    selectedAgendas.value.splice(idx, 1);
+  } else {
+    selectedAgendas.value.push(index);
+  }
 };
 
-// 打开模态框并加载数据
+// 切换待办事项选择
+const toggleTodo = (index) => {
+  const idx = selectedTodos.value.indexOf(index);
+  if (idx > -1) {
+    selectedTodos.value.splice(idx, 1);
+  } else {
+    selectedTodos.value.push(index);
+  }
+};
+
+// 切换跟进事项选择
+const toggleFollowUp = (index) => {
+  const idx = selectedFollowUps.value.indexOf(index);
+  if (idx > -1) {
+    selectedFollowUps.value.splice(idx, 1);
+  } else {
+    selectedFollowUps.value.push(index);
+  }
+};
+
+// 保存结果到数据库
+const saveResults = async () => {
+  // 至少选择一项
+  if (!saveOptions.value.basicInfo &&
+      !saveOptions.value.agendas &&
+      !saveOptions.value.todos &&
+      !saveOptions.value.followUps) {
+    messageStore.setInfo('请至少选择一项要保存的内容');
+    return;
+  }
+
+  // 验证会议基本信息是否完整
+  if (saveOptions.value.basicInfo && !results.value.extract_meeting_basic_info) {
+    messageStore.setInfo('会议基本信息不完整，无法保存');
+    return;
+  }
+
+  isSaving.value = true;
+
+  try {
+    // 构建保存数据
+    const saveData = {
+      summary: useChatStore().text,
+      basic_info: saveOptions.value.basicInfo ? results.value.extract_meeting_basic_info : null,
+      agendas: saveOptions.value.agendas
+        ? selectedAgendas.value.length > 0
+          ? selectedAgendas.value.map(i => results.value.parse_meeting_agenda_conclusion[i])
+          : results.value.parse_meeting_agenda_conclusion
+        : [],
+      todos: saveOptions.value.todos
+        ? selectedTodos.value.length > 0
+          ? selectedTodos.value.map(i => results.value.generate_meeting_todo[i])
+          : results.value.generate_meeting_todo
+        : [],
+      follow_ups: saveOptions.value.followUps
+        ? selectedFollowUps.value.length > 0
+          ? selectedFollowUps.value.map(i => results.value.mark_meeting_follow_up[i])
+          : results.value.mark_meeting_follow_up
+        : []
+    };
+
+    const response = await fetch('http://localhost:5000/api/results/save', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify(saveData)
+    });
+
+    const result = await response.json();
+
+    if (result.code === 200) {
+      messageStore.setSuccess('保存成功');
+      // 清空选择
+      selectedAgendas.value = [];
+      selectedTodos.value = [];
+      selectedFollowUps.value = [];
+      // 可选：关闭模态框
+      // closeModal();
+    } else {
+      messageStore.setInfo(result.message || '保存失败');
+    }
+  } catch (err) {
+    console.error('保存失败:', err);
+    messageStore.setNetworkError('failed');
+    messageStore.setInfo('保存失败，请重试');
+  } finally {
+    isSaving.value = false;
+  }
+};
+
+// 打开模态框时初始化选择
 const openModal = () => {
   const conversation = useChatStore();
   const rawData = conversation.extractObservation();
@@ -156,7 +324,32 @@ const openModal = () => {
   }
 
   results.value = parsedResults;
+
+  // 默认选中所有议程、待办事项和跟进事项
+  selectedAgendas.value = results.value.parse_meeting_agenda_conclusion
+    ? results.value.parse_meeting_agenda_conclusion.map((_, index) => index)
+    : [];
+  selectedTodos.value = results.value.generate_meeting_todo
+    ? results.value.generate_meeting_todo.map((_, index) => index)
+    : [];
+  selectedFollowUps.value = results.value.mark_meeting_follow_up
+    ? results.value.mark_meeting_follow_up.map((_, index) => index)
+    : [];
+
   showModal.value = true;
+};
+
+// 工具函数：格式化时间
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 };
 
 // 关闭模态框
