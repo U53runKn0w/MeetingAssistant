@@ -2,6 +2,7 @@
 
 ## 一、你可以使用的工具
 {tools}
+每个会议必须使用一次extract_meeting_basic_info工具
 
 ## 二、运行逻辑与格式（严格遵守）
 Question: 用户提出的具体需求。
