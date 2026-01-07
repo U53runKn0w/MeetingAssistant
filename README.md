@@ -45,8 +45,8 @@ Digital/
 ├── app.py               # 应用入口
 ├── agent.py             # Agent 创建和执行
 ├── config.py            # 配置加载
-├── requirements.txt     # Python 依赖
-└── CODEBUDDY.md         # 开发助手配置
+└── requirements.txt     # Python 依赖
+
 ```
 
 ## 技术栈
@@ -703,77 +703,3 @@ existing_steps = db.get_chat_detail(session_id)
 step_counter = len(existing_steps)
 yield f"data: {json.dumps({'type': 'resumed', 'content': step_counter})}\n\n"
 ```
-
-## 部署建议
-
-### 开发环境
-
-```bash
-# 后端
-python app.py  # 启动在 http://localhost:5000
-
-# 前端
-cd front && npm run dev  # 启动在 http://localhost:5173
-```
-
-### 生产环境
-
-1. 使用 Gunicorn + Nginx 部署后端
-2. 前端打包后使用 Nginx 托管静态文件
-3. 配置 HTTPS 和 CORS
-4. 使用 PostgreSQL 替代 SQLite
-5. 配置 Redis 作为缓存
-6. 使用环境变量管理敏感配置
-
-## 故障排查
-
-### 常见问题
-
-1. **DeepSeek API 调用失败**
-   - 检查 `config/.env` 中的 `DEEPSEEK_API_KEY` 是否正确
-   - 确认网络连接正常
-
-2. **SSE 连接中断**
-   - 检查 Nginx 代理配置，确保 `proxy_buffering off`
-   - 确认后端超时设置合理
-
-3. **数据库锁死**
-   - 检查并发请求是否过多
-   - 考虑使用连接池
-
-4. **前端构建失败**
-   - 确认 Node.js 版本符合要求 (^20.19.0 || >=22.12.0)
-   - 清除 node_modules 重新安装
-
-## 开发规范
-
-### 代码风格
-
-- Python: 遵循 PEP 8 规范
-- JavaScript/Vue: 遵循 ESLint 配置
-- 使用有意义的变量和函数命名
-
-### Git 提交规范
-
-```
-feat: 新功能
-fix: 修复 Bug
-docs: 文档更新
-style: 代码格式调整
-refactor: 重构
-test: 测试相关
-chore: 构建/工具链相关
-```
-
-## 许可证
-
-本项目仅供学习和研究使用。
-
-## 联系方式
-
-如有问题或建议，请通过 Issue 反馈。
-
----
-
-**文档版本:** 1.0.0
-**最后更新:** 2026-01-07
