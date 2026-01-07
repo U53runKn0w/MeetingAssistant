@@ -259,6 +259,8 @@ def get_user_info(username: str) -> dict:
     user_id = db.get_user(username.strip()).get('user_id')
     pref = db.get_user_preference_dict(user_id=user_id)
     meetings = db.get_user_meetings(user_id=user_id)
+    for meeting in meetings:
+        del meeting["summary"]
     todos = db.get_user_todos(user_id=user_id)
     return {
         "preferences": pref,
