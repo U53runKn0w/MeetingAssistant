@@ -399,19 +399,41 @@ const modalDataList = computed(() => {
     if (!settings.value.showCompleted) {
       filtered = filtered.filter(todo => todo.status !== 'completed');
     }
-    return filtered;
+    // 应用排序
+    return sortTodos(filtered);
   }
   if (activeType.value === 'meeting') return myData.value.meetings;
   if (activeType.value === 'preference') return myData.value.preferences;
   return [];
 });
 
-// 首页显示的待办（根据设置过滤）
+// 待办排序函数：未完成在前，已完成在后，同组按截止时间排序
+const sortTodos = (todos) => {
+  return [...todos].sort((a, b) => {
+    // 首先按状态分组：completed 排在最后
+    const statusOrder = { 'completed': 2, 'in_progress': 1, 'pending': 0 };
+    const aStatusOrder = statusOrder[a.status] ?? 3;
+    const bStatusOrder = statusOrder[b.status] ?? 3;
+
+    if (aStatusOrder !== bStatusOrder) {
+      return aStatusOrder - bStatusOrder;
+    }
+
+    // 同组内按截止时间排序（没有截止时间的排在最后）
+    if (!a.deadline && !b.deadline) return 0;
+    if (!a.deadline) return 1;
+    if (!b.deadline) return -1;
+    return new Date(a.deadline) - new Date(b.deadline);
+  });
+};
+
+// 首页显示的待办（根据设置过滤并排序）
 const displayedTodos = computed(() => {
+  let filtered = myData.value.todos;
   if (!settings.value.showCompleted) {
-    return myData.value.todos.filter(todo => todo.status !== 'completed');
+    filtered = filtered.filter(todo => todo.status !== 'completed');
   }
-  return myData.value.todos;
+  return sortTodos(filtered);
 });
 
 // 首页显示的会议（最多显示3个，未开始的会议优先）
